@@ -33,10 +33,13 @@ Determine the user's intent, then invoke the matching skill:
 
 ## Multi-Phase Workflows
 
-Some requests span multiple phases. Common sequences:
+Some requests span multiple phases. Two pre-built workflow skills handle the most common sequences:
 
-- **Full decomposition**: `/list-volatilities` → `/classify-structure` → `/validate-use-cases` → `/generate-diagram`
-- **Architecture review**: `/classify-structure` (check current placement) → `/validate-use-cases` (verify against use cases) → report findings
+- **`/system-decomposer`** — Full pipeline: `/list-volatilities` → `/classify-structure` → `/validate-use-cases` → `/generate-diagram`, with user checkpoints between each phase.
+- **`/arch-reviewer`** — Review existing architecture: `/classify-structure` → `/validate-use-cases` → scorecard report.
+
+If neither workflow fits, compose phases manually:
+
 - **Design from scratch**: `/list-volatilities` → `/classify-structure` → `/wire-services` → `/validate-use-cases` → `/generate-diagram`
 
 When executing multi-phase workflows, summarize the output of each phase before proceeding

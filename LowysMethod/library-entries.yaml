@@ -1,51 +1,44 @@
 # ──────────────────────────────────────────────
 # Löwy's Method — library.yaml entries
-# Paste these into your library.yaml under `library: skills:`
-# Replace <your-repo-url> with your actual repo URL.
 #
-# Usage:  /library use lowys-method
-# Effect: Installs all 8 skills via dependency resolution.
-#         lowys-method = orchestrator (auto-triggered)
-#         5 sub-skills = focused phases (auto-triggered)
-#         2 workflow skills = /decompose-system and /arch-review (user-invoked only)
+# Merge these into your existing library.yaml.
+# Replace <your-repo-url> with your actual GitHub repo URL.
+#
+# Install:  /library use lowys-method
+# Result:   All 8 skills installed via recursive dependency resolution.
 # ──────────────────────────────────────────────
 
+library:
+  skills:
     - name: lowys-method
       description: "Orchestrator for Löwy's system design method — routes to sub-skills for decomposition, classification, validation, diagrams, and wiring"
       source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/lowys-method/SKILL.md
-      requires:
-        - skill:list-volatilities
-        - skill:classify-structure
-        - skill:validate-use-cases
-        - skill:generate-diagram
-        - skill:wire-services
-        - skill:decompose-system
-        - skill:arch-review
+      requires: [skill:list-volatilities, skill:classify-structure, skill:validate-use-cases, skill:generate-diagram, skill:wire-services, skill:system-decomposer, skill:arch-reviewer]
 
     - name: list-volatilities
       description: "Interactive volatility-based system decomposition — axes of volatility, volatilities list, candidate services"
-      source: <your-repo-url>/blob/main/skills/list-volatilities/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/list-volatilities/SKILL.md
 
     - name: classify-structure
       description: "Layer classification (Client/Manager/Engine/RA/Resource/Utility), naming conventions, Design Don'ts"
-      source: <your-repo-url>/blob/main/skills/classify-structure/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/classify-structure/SKILL.md
 
     - name: validate-use-cases
       description: "Architecture validation via call chains against core use cases"
-      source: <your-repo-url>/blob/main/skills/validate-use-cases/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/validate-use-cases/SKILL.md
 
     - name: generate-diagram
       description: "Call chain diagrams, sequence diagrams, swim lanes, layered architecture overviews"
-      source: <your-repo-url>/blob/main/skills/generate-diagram/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/generate-diagram/SKILL.md
 
     - name: wire-services
       description: "Service communication patterns — direct, queued, Pub/Sub, Message Bus"
-      source: <your-repo-url>/blob/main/skills/wire-services/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/wire-services/SKILL.md
 
-    - name: decompose-system
+    - name: system-decomposer
       description: "Full Löwy decomposition workflow — volatilities → classification → validation → diagrams (user-invoked only)"
-      source: <your-repo-url>/blob/main/skills/decompose-system/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/system-decomposer/SKILL.md
 
-    - name: arch-review
+    - name: arch-reviewer
       description: "Architecture review against Löwy's Method — structure audit, use case validation, scorecard (user-invoked only)"
-      source: <your-repo-url>/blob/main/skills/arch-review/SKILL.md
+      source: https://github.com/TutanDev/cc-resources/blob/main/LowysMethod/skills/arch-reviewer/SKILL.md

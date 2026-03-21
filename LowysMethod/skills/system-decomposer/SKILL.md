@@ -1,5 +1,5 @@
 ---
-name: decompose-system
+name: system-decomposer
 description: "Full system decomposition using Löwy's Method — from requirements to validated architecture. Use when explicitly invoked."
 argument-hint: <system description or requirements>
 disable-model-invocation: true

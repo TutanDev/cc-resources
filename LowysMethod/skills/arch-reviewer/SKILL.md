@@ -1,5 +1,5 @@
 ---
-name: arch-review
+name: arch-reviewer
 description: "Review an existing architecture for compliance with Löwy's Method — layer placement, naming, Design Don'ts, and use case validation. Use when explicitly invoked."
 argument-hint: <description of existing architecture or service list>
 disable-model-invocation: true
