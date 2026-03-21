@@ -1,6 +1,8 @@
 ---
-description: Review an existing architecture for compliance with Löwy's Method — layer placement, naming, Design Don'ts, and use case validation
+name: arch-review
+description: "Review an existing architecture for compliance with Löwy's Method — layer placement, naming, Design Don'ts, and use case validation. Use when explicitly invoked."
 argument-hint: <description of existing architecture or service list>
+disable-model-invocation: true
 ---
 
 Review the following architecture against Löwy's Method: $ARGUMENTS

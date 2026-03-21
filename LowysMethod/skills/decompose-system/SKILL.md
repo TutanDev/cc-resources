@@ -1,6 +1,8 @@
 ---
-description: Full system decomposition using Löwy's Method — from requirements to validated architecture
+name: decompose-system
+description: "Full system decomposition using Löwy's Method — from requirements to validated architecture. Use when explicitly invoked."
 argument-hint: <system description or requirements>
+disable-model-invocation: true
 ---
 
 Execute a full Löwy's Method decomposition for the following system: $ARGUMENTS
