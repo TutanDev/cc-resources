@@ -3,6 +3,7 @@ input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+effort=$(echo "$input" | jq -r '.effort.level // empty')
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 # Session token usage: sum of cumulative input + output tokens for this session
 total_in=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
@@ -41,7 +42,11 @@ rate_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // .rat
 parts=()
 
 [ -n "$cwd" ] && parts+=("$(printf '\033[34m%s\033[0m' "$cwd")")
-[ -n "$model" ] && parts+=("$(printf '\033[33m%s\033[0m' "$model")")
+if [ -n "$model" ] && [ -n "$effort" ]; then
+  parts+=("$(printf '\033[33m%s \xc2\xb7 %s\033[0m' "$model" "$effort")")
+elif [ -n "$model" ]; then
+  parts+=("$(printf '\033[33m%s\033[0m' "$model")")
+fi
 [ -n "$used" ] && parts+=("$(printf '\033[36mctx: %s%%\033[0m' "$(printf '%.0f' "$used")")")
 
 # New segment 1: session token usage (magenta)
