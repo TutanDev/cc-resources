@@ -10,6 +10,9 @@ export const meta = {
   ],
 }
 
+// Keep this file LF-only: the Workflow tool rejects scripts that contain carriage returns.
+// The repository .gitattributes checks it out with LF on every platform.
+
 // ---------- input ----------
 // A slash command passes one string: "<topic> [--flag] [--name=value]". A JSON object or a structured call passes the object.
 function parseInput(raw, key, options) {

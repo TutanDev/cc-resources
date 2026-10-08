@@ -1,4 +1,4 @@
-name: Shared plugin contracts
+name: Plugin checks
 
 on:
   push:
@@ -10,3 +10,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/check-shared.sh
+
+  lf-checkout:
+    # Git for Windows defaults to core.autocrlf=true; plugin files must still check out with LF.
+    runs-on: windows-latest
+    steps:
+      - run: git config --global core.autocrlf true
+      - uses: actions/checkout@v4
+      - name: No file checks out with CRLF
+        shell: bash
+        run: |
+          crlf=$(git ls-files --eol | grep 'w/crlf' || true)
+          if [ -n "$crlf" ]; then
+            echo "$crlf"
+            echo "These files check out with CRLF; fix .gitattributes." >&2
+            exit 1
+          fi
