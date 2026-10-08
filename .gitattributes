@@ -1,0 +1,4 @@
+# Check out LF on every platform, whatever core.autocrlf says.
+# Claude Code reads plugin files as they are on disk: the Workflow tool rejects
+# scripts that contain carriage returns, and bash fails on CRLF shell scripts.
+* text=auto eol=lf
