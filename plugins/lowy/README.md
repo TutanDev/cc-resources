@@ -1,27 +1,29 @@
-# lowy-dmf
+# lowy
 
-A Claude Code plugin that combines two architecture methods into one design pipeline:
+A Claude Code plugin for **Löwy's Method** (Juval Löwy, *Righting Software*) on larger systems: volatility-based decomposition, layered services, Design Don'ts, call chains, and service wiring.
+It interleaves the method with **Domain Modeling Made Functional** (Scott Wlaschin) in one 8-phase design pipeline: Löwy draws the service boundaries, DMF models what lives inside them.
 
-- **Löwy's Method** (Juval Löwy, *Righting Software*) for macro-architecture: volatility-based decomposition, layered services, Design Don'ts, call chains, and service wiring.
-- **Domain Modeling Made Functional** (Scott Wlaschin) for micro-architecture: domain discovery, type-driven modeling, workflow pipelines, and serialization.
+The DMF half is the [`dmf`](../dmf/README.md) plugin, which this plugin declares as a dependency and installs with it.
+Use `dmf` alone in codebases that do not need system-level architecture.
 
 It is tuned for C#/Unity work, with XR-specific adaptations.
-Code is written in C# by default, following `references/csharp-mapping.md`; ask for F# to get the book's notation.
 
 ## Install
 
-In Claude Code:
+From inside the repository that needs it:
 
 ```
-/plugin marketplace add TutanDev/cc-resources
-/plugin install lowy-dmf@cc-resources
+claude plugin marketplace add TutanDev/cc-resources
+claude plugin install lowy@cc-resources --scope project
 ```
 
+Project scope records the plugin in that repository's `.claude/settings.json`, so it is on for the whole team and off in your other repositories.
+Installing `lowy` also installs and enables `dmf`.
 Then run `/reload-plugins` or start a new session.
 
 ## Skills
 
-Skills are namespaced under the plugin: type `/lowy-dmf:<skill>`, or describe what you want and Claude picks the right skill.
+Skills are namespaced under the plugin: type `/lowy:<skill>`, or describe what you want and Claude picks the right skill.
 
 | Skill | Role |
 |---|---|
@@ -35,11 +37,8 @@ Skills are namespaced under the plugin: type `/lowy-dmf:<skill>`, or describe wh
 | `system-decomposer` | Composite: full Löwy pipeline with checkpoints |
 | `arch-reviewer` | Composite: interactive review of existing code or a design, with a scorecard |
 | `fitness-tests` | Generates Unity EditMode tests that fail on new violations of the mechanical Löwy rules |
-| `dmf-orchestrator` | DMF orchestrator: routes to the DMF phase skills |
-| `dmf-domain-discovery` | Phase 1: events, commands, bounded contexts, workflows, glossary |
-| `dmf-domain-modeling` | Phase 4: constrained types, unions, lifecycle stages, workflow signatures |
-| `dmf-workflow-implementation` | Phase 6: composable pipelines, Result-based errors, dependency injection |
-| `dmf-serialization-persistence` | Phase 8: DTOs, domain mapping, persistence, versioning, CQRS |
+
+Phases 1, 4, 6 and 8 are skills of the `dmf` plugin: `dmf:domain-discovery`, `dmf:domain-modeling`, `dmf:workflow-implementation` and `dmf:serialization-persistence`, with `dmf:orchestrator` as their router.
 
 ## Agents
 
@@ -48,10 +47,10 @@ Claude delegates to them from the skills and workflows, or when you ask for a re
 
 | Agent | Checks |
 |---|---|
-| `lowy-dmf:lowy-reviewer` | Service inventory from the code, layers, naming, the 12 Design Don'ts, closed architecture, ratios, smells |
-| `lowy-dmf:call-chain-validator` | Each use case traced hop by hop through a design or the code, with a verdict per chain |
-| `lowy-dmf:dmf-reviewer` | Domain types, illegal states, workflows, error unions, DTOs and versioning |
-| `lowy-dmf:fp-reviewer` | Function-level functional style (guidelines G01-G12), with Unity hot-path exceptions |
+| `lowy:lowy-reviewer` | Service inventory from the code, layers, naming, the 12 Design Don'ts, closed architecture, ratios, smells |
+| `lowy:call-chain-validator` | Each use case traced hop by hop through a design or the code, with a verdict per chain |
+
+The workflows below also run the `dmf` plugin's reviewers: `dmf:dmf-reviewer` (domain types, illegal states, workflows, error unions, DTOs) and `dmf:fp-reviewer` (functional style).
 
 ## Workflows
 
@@ -59,8 +58,8 @@ Multi-agent runs that fan out reviewers in parallel, try to refute every finding
 
 | Workflow | Use |
 |---|---|
-| `/lowy-dmf:arch-audit <path> [--thorough] [--lenses=lowy,chains,dmf,fp]` | Audit existing code with every lens, per subsystem |
-| `/lowy-dmf:design-check <topic> [--thorough]` | Check a design directory before implementing it: call chains, Don'ts, a change simulation per volatility axis, the domain model, staleness |
+| `/lowy:arch-audit <path> [--thorough] [--lenses=lowy,chains,dmf,fp]` | Audit existing code with every lens, per subsystem |
+| `/lowy:design-check <topic> [--thorough]` | Check a design directory before implementing it: call chains, Don'ts, a change simulation per volatility axis, the domain model, staleness |
 
 `--thorough` verifies each finding with three independent skeptics instead of one.
 `--out=<folder>` writes the report somewhere other than `.claude/docs/reviews/`.
@@ -74,13 +73,13 @@ In `claude -p` (scripts, CI), allow the `Workflow` tool and set `CLAUDE_CODE_PRI
 | You want to... | Say |
 |---|---|
 | Design a new system end-to-end | "Help me architect this system: ..." |
-| Decompose into services only | `/lowy-dmf:system-decomposer <requirements>` |
-| Review existing code with you in the loop | `/lowy-dmf:arch-reviewer <path>` |
-| Audit a codebase in one run | `/lowy-dmf:arch-audit <path>` |
-| Check a finished design | `/lowy-dmf:design-check <topic>` |
-| Stop violations from coming back | `/lowy-dmf:fitness-tests` |
+| Decompose into services only | `/lowy:system-decomposer <requirements>` |
+| Review existing code with you in the loop | `/lowy:arch-reviewer <path>` |
+| Audit a codebase in one run | `/lowy:arch-audit <path>` |
+| Check a finished design | `/lowy:design-check <topic>` |
+| Stop violations from coming back | `/lowy:fitness-tests` |
 | Check one design question | "Is this a Manager or an Engine?", "Draw the call chain for checkout" |
-| Model types for a known service | "Model the domain types for the pricing service" |
+| Model types for a known service | "Model the domain types for the pricing service" (runs `dmf:domain-modeling`) |
 
 ## How It Works
 
@@ -100,12 +99,12 @@ Each phase writes a numbered file to `.claude/docs/design/<topic>/` in your proj
 Every phase checkpoints with you before moving on.
 Run only the phases you need; the orchestrators detect which files exist, start at the right phase, and flag files that are stale because an input changed after them.
 Reviews from `arch-reviewer`, `arch-audit` and `design-check` go to `.claude/docs/reviews/`, in the shape defined by `references/review-findings.md`.
-`references/artifact-pipeline.md` is the authoritative map of which file feeds which.
+`references/artifact-pipeline.md` is the authoritative map of which file feeds which; `references/design-directory.md` defines the directory, the numbering shared with `dmf`, and staleness.
 
 ## Project Profile
 
 Describe how your codebase maps the methods in `.claude/docs/architecture.md`: folders per layer, naming, messaging API, composition root, functional library, approved deviations, and known debt.
-Every skill, agent and workflow reads it first.
+Every skill, agent and workflow in both plugins reads it first.
 It replaces generic platform defaults, never the methodology rules, and a violation counts as accepted only when it is listed as an approved deviation.
 The fitness tests use the same Approved deviations and Known debt as their baseline, so the profile and CI never disagree.
 See `references/project-profile.md` for the contract.
@@ -120,12 +119,12 @@ Rules that need use-case boundaries (#1, #3-#5) or judgment stay with the agents
 ## Layout
 
 ```
-lowy-dmf/
-├── .claude-plugin/plugin.json
+lowy/
+├── .claude-plugin/plugin.json   Declares the dmf dependency
 ├── agents/          Read-only reviewers
 ├── workflows/       arch-audit and design-check
-├── references/      Shared by several skills and agents: pipeline, project profile, layers and Don'ts,
-│                    call chains, C# mapping for DMF, functional-style guidelines, findings contract
+├── references/      Layers and Don'ts, call chains, the 8-file pipeline, plus the contracts shared
+│                    with dmf: project profile, review findings, design directory
 ├── skills/          One folder per skill, with its own references, output templates and code templates
 └── tests/fitness/   Regression tests for the fitness-test analyzer, against a fixture assembly
 ```
@@ -133,8 +132,9 @@ lowy-dmf/
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
-Run `claude plugin validate .` from the repository root before pushing.
-After changing anything under `skills/fitness-tests/templates/`, run `dotnet test plugins/lowy-dmf/tests/fitness` (needs the .NET 8 SDK or later); the core project compiles the templates under Unity's constraints (.NET Standard 2.1, C# 9).
+`references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/`: change both, then run `bash scripts/check-shared.sh` from the repository root.
+Run `claude plugin validate plugins/lowy` before pushing.
+After changing anything under `skills/fitness-tests/templates/`, run `dotnet test plugins/lowy/tests/fitness` (needs the .NET 8 SDK or later); the core project compiles the templates under Unity's constraints (.NET Standard 2.1, C# 9).
 A new analyzer rule needs a case in `tests/fitness/Fixture/Shop.cs` and its expected violation in `AnalyzerTests.cs`.
 
 ## Sources

@@ -6,9 +6,14 @@
   },
   "plugins": [
     {
-      "name": "lowy-dmf",
-      "source": "./plugins/lowy-dmf",
-      "description": "Löwy's Method + Domain Modeling Made Functional: decompose by volatility, classify layers, validate call chains, model domain types in C#, audit existing code with verified multi-agent reviews, and enforce the rules with fitness tests."
+      "name": "dmf",
+      "source": "./plugins/dmf",
+      "description": "Domain Modeling Made Functional in C# for any codebase: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers."
+    },
+    {
+      "name": "lowy",
+      "source": "./plugins/lowy",
+      "description": "Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and fitness tests. Installs dmf as a dependency."
     }
   ]
 }

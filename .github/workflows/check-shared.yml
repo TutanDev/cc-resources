@@ -1,0 +1,12 @@
+name: Shared plugin contracts
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-shared:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-shared.sh

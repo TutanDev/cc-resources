@@ -1,7 +1,8 @@
 # Review Findings Contract
 
-Every reviewer in this plugin (the `lowy-reviewer`, `call-chain-validator`, `dmf-reviewer` and `fp-reviewer` agents, the `arch-reviewer` skill, and the `arch-audit` and `design-check` workflows) reports findings in this shape.
-One shape lets the workflows verify, deduplicate and rank findings from different lenses.
+Every reviewer in the `dmf` and `lowy` plugins reports findings in this shape: the `dmf:dmf-reviewer` and `dmf:fp-reviewer` agents, the `lowy:lowy-reviewer` and `lowy:call-chain-validator` agents, the `lowy:arch-reviewer` skill, and the `/lowy:arch-audit` and `/lowy:design-check` workflows.
+One shape lets the workflows verify, deduplicate and rank findings from different lenses and both plugins.
+Both plugins keep an identical copy of this contract.
 
 ## Evidence
 
