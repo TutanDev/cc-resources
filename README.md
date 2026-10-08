@@ -23,24 +23,13 @@ Add it once, then install the plugins you need:
 Install it at project scope from inside such a repository, which records it in that repository's `.claude/settings.json` for the whole team:
 
 ```
+claude plugin marketplace add TutanDev/cc-resources
 claude plugin install lowy@cc-resources --scope project
 ```
 
+Skip the first command if the marketplace is already added.
 Installing `lowy` also installs and enables `dmf`.
-On a machine that has not installed `lowy` yet, `/plugin` reports it as enabled in project settings but not installed; run the same command there once.
-
-### Migrating from `lowy-dmf`
-
-`lowy-dmf` was split into `dmf` and `lowy` in version 0.3.0.
-Uninstall it, then install the plugins you need:
-
-```
-claude plugin uninstall lowy-dmf@cc-resources
-claude plugin install lowy@cc-resources --scope project
-```
-
-Commands move to the new namespaces: `/lowy-dmf:arch-audit` is now `/lowy:arch-audit`, and the DMF skills drop their `dmf-` prefix (`/lowy-dmf:dmf-domain-modeling` is now `/dmf:domain-modeling`).
-Design files in `.claude/docs/design/`, reviews in `.claude/docs/reviews/`, and the project profile `.claude/docs/architecture.md` keep working unchanged.
+On a machine that has not installed `lowy` yet, `/plugin` reports it as enabled in project settings but not installed; run the same commands there once.
 
 ## Maintaining
 
