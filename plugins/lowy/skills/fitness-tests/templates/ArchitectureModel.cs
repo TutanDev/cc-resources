@@ -1,4 +1,4 @@
-// Architecture fitness model, from the lowy-dmf Claude Code plugin (fitness-tests skill).
+// Architecture fitness model, from the lowy Claude Code plugin (fitness-tests skill).
 // Copy this file as is; configure the rules in ArchitectureProfile.cs instead of editing it.
 using System;
 using System.Collections.Generic;

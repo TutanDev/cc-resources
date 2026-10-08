@@ -3,7 +3,7 @@
 When completing the validation phase, produce a markdown file following this template.
 Save the file as `05-call-chains.md` in the design directory `.claude/docs/design/<topic>/`.
 
-This file is consumed by Phase 6 (`dmf-workflow-implementation`) and
+This file is consumed by Phase 6 (`dmf:workflow-implementation`) and
 Phase 7 (`wire-services`).
 
 ---
@@ -143,7 +143,7 @@ which architectural service chain.
 
 ## 9. Next Steps
 
-- [ ] Implement workflow pipelines using `dmf-workflow-implementation`
+- [ ] Implement workflow pipelines using `dmf:workflow-implementation`
 - [ ] Input: `04-domain-model.md` types + this document's §7 (Workflow-to-Service Mapping)
 - [ ] Output: `06-workflow-pipelines.md`
 ```

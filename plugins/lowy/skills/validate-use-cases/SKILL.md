@@ -72,7 +72,7 @@ Save the output as **`05-call-chains.md`** in the design directory `.claude/docs
 **Input files:** `03-layered-architecture.md` (classified services) + `02-volatilities.md` §2 (core use cases) + `01-domain-discovery.md` §6 (workflows, for the §7 workflow-to-service mapping).
 If `01-domain-discovery.md` does not exist, map the use cases to services in §7 instead and say so.
 
-**Output file:** `05-call-chains.md` - consumed by Phase 6 (`dmf-workflow-implementation`) and Phase 7 (`wire-services`).
+**Output file:** `05-call-chains.md` - consumed by Phase 6 (`dmf:workflow-implementation`) and Phase 7 (`wire-services`).
 
 Produce the complete document per the template: call chains per use case with layer compliance tables, symmetry analysis, non-core validation, "There Is No Feature" check, verdict with severity, workflow-to-service mapping, and open questions.
 

@@ -190,8 +190,9 @@ public static class Pricing
 }
 ```
 
-- The composition root (named by the project profile) builds the delegates once and hands them to the Manager.
-- Inside a service, inject delegates; across services, keep Löwy contract interfaces (see the conflict table in `architecture-advisor`).
+- The composition root (named by the project profile) builds the delegates once and hands them to the application service or workflow entry point (a Löwy Manager).
+- Inside a module, inject delegates or `Func<>` by partial application.
+- Contracts between modules, layers or assemblies stay interfaces (in a Löwy architecture: Manager, Engine and ResourceAccess contracts).
 - A static class of pure functions is the implementation; a class with mutable fields is not a workflow.
 - `F.CurryFirst` and `.Curry()` help when a dependency is the first of many parameters.
 
@@ -261,7 +262,7 @@ Classify before modeling: domain errors (expected, part of the language) go in t
 ## Async
 
 - Async effects are `UniTask<Result<T>>`, composed with `MapAsync`, `BindAsync`, `ThenAsync` and `MatchAsync`.
-- Await at the edge (Manager or ResourceAccess); domain functions stay synchronous and pure.
+- Await at the edge: the application service or workflow entry point and the adapters that own I/O (in a Löwy architecture: Managers and ResourceAccess); domain functions stay synchronous and pure.
 - Pass `CancellationToken` explicitly; cancellation is not a domain error.
 
 ## Hot Paths
@@ -288,7 +289,7 @@ Each boundary gets a DTO with primitive fields, `FromDomain` (total) and `ToDoma
 - Unions serialize as a tagged DTO: a `string Kind` (or `int`) field plus one optional field per case; `ToDomain` switches on the tag and fails on an unknown tag.
 - Avoid `TypeNameHandling` in Newtonsoft: it couples data to type names and is a security risk; use an explicit tag.
 - Optional values: `SerializableOptional<T>` for Inspector fields; a nullable field in JSON DTOs, mapped to `Optional<T>` in `ToDomain`.
-- ScriptableObject configs are DTOs: the Manager or ResourceAccess validates them once (`ToDomain`) and the domain sees only the result.
+- ScriptableObject configs are DTOs: the edge code that loads them (in a Löwy architecture: a Manager or ResourceAccess) validates them once (`ToDomain`) and the domain sees only the result.
 - For `[SerializeReference]` types, add `[UnityEngine.Scripting.APIUpdating.MovedFrom]` when renaming or moving a type, or existing assets lose their data.
 
 ### Versioning Persisted Data
@@ -322,7 +323,7 @@ Players keep old saves (PlayerPrefs JSON, files), so every persisted DTO carries
 | `throw` or `try/catch` for expected domain failures | Effects are explicit in signatures | `Result<T>` with a domain error case |
 | `null` returned for "not found" | Same | `Optional<T>` |
 | Ad-hoc error strings, branching on message text | Errors are domain concepts | Error union with stable codes |
-| I/O (`PlayerPrefs`, HTTP, `File`, `UnityEngine.XR`) inside domain functions | I/O at the edges | Move to ResourceAccess; pass data in |
+| I/O (`PlayerPrefs`, HTTP, `File`, `UnityEngine.XR`) inside domain functions | I/O at the edges | Move to an adapter that owns the I/O (in a Löwy architecture: ResourceAccess); pass data in |
 | Domain type with `[Serializable]`, `[SerializeField]` or JSON attributes | Persistence ignorance | DTO plus `ToDomain`/`FromDomain` |
 | The same domain type used by two bounded contexts | Contexts talk through DTOs and events | DTO at the boundary |
 | `List<T>` field in a domain record | Immutability | `IReadOnlyList<T>` over a copy |

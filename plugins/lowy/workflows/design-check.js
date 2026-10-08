@@ -42,9 +42,9 @@ const INPUTS = {
   '03-layered-architecture.md': ['01-domain-discovery.md', '02-volatilities.md'],
   '04-domain-model.md': ['01-domain-discovery.md', '03-layered-architecture.md'],
   '05-call-chains.md': ['01-domain-discovery.md', '02-volatilities.md', '03-layered-architecture.md'],
-  '06-workflow-pipelines.md': ['04-domain-model.md', '05-call-chains.md'],
+  '06-workflow-pipelines.md': ['01-domain-discovery.md', '04-domain-model.md', '05-call-chains.md'],
   '07-service-wiring.md': ['03-layered-architecture.md', '04-domain-model.md', '05-call-chains.md'],
-  '08-serialization-bridge.md': ['04-domain-model.md', '06-workflow-pipelines.md', '07-service-wiring.md'],
+  '08-serialization-bridge.md': ['01-domain-discovery.md', '04-domain-model.md', '06-workflow-pipelines.md', '07-service-wiring.md'],
 }
 
 // ---------- schemas ----------
@@ -147,7 +147,7 @@ log(`Checking ${dir}: ${d.useCases.length} core use cases, ${d.volatilities.leng
 const checks = [
   ...d.useCases.map((uc, i) => ({
     key: `chain ${i + 1}: ${uc.name}`,
-    agentType: 'lowy-dmf:call-chain-validator',
+    agentType: 'lowy:call-chain-validator',
     prompt: `Design mode. Validate one core use case against the design in \`${dir}\` (read \`03-layered-architecture.md\`, and \`01\`/\`02\` for context).
 Use case: "${uc.name}" - ${uc.description} (source: ${uc.source}).
 ${profileNote}
@@ -155,7 +155,7 @@ Return findings with \`lens: "chains"\`, ids \`C-${i + 1}.n\`, and \`file\` set 
   })),
   {
     key: 'structure',
-    agentType: 'lowy-dmf:lowy-reviewer',
+    agentType: 'lowy:lowy-reviewer',
     prompt: `Review the design \`${dir}/03-layered-architecture.md\` as written (design mode, no code inventory): layers, naming, the 12 Design Don'ts, closed architecture and relaxations, ratios, symmetry, expendability, decomposition smells.
 Cross-check it against \`02-volatilities.md\`: every candidate service is placed, and no service exists without a reason.
 ${profileNote}
@@ -163,7 +163,7 @@ Return findings with \`lens: "lowy"\` and ids \`L-n\`. Put the scorecard in \`su
   },
   ...d.volatilities.map((v, i) => ({
     key: `change ${i + 1}: ${v.axis}`,
-    agentType: 'lowy-dmf:lowy-reviewer',
+    agentType: 'lowy:lowy-reviewer',
     prompt: `Change simulation (design mode) on \`${dir}\`.
 Imagine the change "${v.axis}" happens (source: ${v.source}); the design says ${v.encapsulatedBy ? `\`${v.encapsulatedBy}\` encapsulates it` : 'no service encapsulates it'}.
 Using \`03-layered-architecture.md\` (and \`05-call-chains.md\`/\`07-service-wiring.md\` if present), list every service whose code or contract would have to change.
@@ -174,7 +174,7 @@ Put the list of services that change, and the verdict, in \`summary\`.`,
   })),
   ...(has04 ? [{
     key: 'domain model',
-    agentType: 'lowy-dmf:dmf-reviewer',
+    agentType: 'dmf:dmf-reviewer',
     prompt: `Design review of \`${dir}/04-domain-model.md\` against DMF, in C# terms: illegal states, primitive obsession, smart constructors, lifecycle stages, unions and totality, workflow signatures and effects, error unions, DTO boundaries.
 Check that its services match \`03-layered-architecture.md\` §8 and its types use the language of \`01-domain-discovery.md\` (if present).
 ${profileNote}

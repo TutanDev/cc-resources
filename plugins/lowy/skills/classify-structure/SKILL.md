@@ -113,8 +113,9 @@ See `${CLAUDE_PLUGIN_ROOT}/references/structure.md` §9:
 Save the output as **`03-layered-architecture.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
 
 **Input file:** `02-volatilities.md` §5 (candidate services) + §2 (core use cases). Also reference `01-domain-discovery.md` for bounded context mapping.
+If `01-domain-discovery.md` does not exist, write `TBD (no 01)` in the §8 Bounded Context(s) column and say so.
 
-**Output file:** `03-layered-architecture.md` - consumed by Phase 4 (`dmf-domain-modeling`), Phase 5 (`validate-use-cases`), and Phase 7 (`wire-services`).
+**Output file:** `03-layered-architecture.md` - consumed by Phase 4 (`dmf:domain-modeling`), Phase 5 (`validate-use-cases`), and Phase 7 (`wire-services`).
 
 Produce the complete document per the template: layer diagram, classification table, naming validation, ratio validation, Design Don'ts checklist, closed architecture rules, subsystem assessment, and service→bounded context mapping.
 

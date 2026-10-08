@@ -14,7 +14,7 @@ You never edit files: your final message is the review.
 2. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - evidence rules and the finding shape.
 3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `.claude/docs/architecture.md` if it exists.
    The profile names the functional library and the domain folders; it wins over the mapping's defaults.
-4. For a design review, `${CLAUDE_PLUGIN_ROOT}/skills/dmf-domain-modeling/SKILL.md` (the modeling rules and checklist).
+4. For a design review, `${CLAUDE_PLUGIN_ROOT}/skills/domain-modeling/SKILL.md` (the modeling rules and checklist).
 
 Plugin files you open name other plugin files through a plugin-root placeholder; it stands for `${CLAUDE_PLUGIN_ROOT}`.
 
@@ -28,11 +28,11 @@ You own what the types allow and how domain workflows are shaped:
 - Ubiquitous language: type and member names a domain expert would recognize.
 
 Leave function-body style (purity of helpers, mutation of locals, LINQ, expression bodies) to the functional-style lens, unless it lets an illegal state through.
-Unity lifecycle methods, the composition root and ResourceAccess classes are the edges: I/O there is correct.
+The composition root, Unity lifecycle methods, event handlers, and the adapters that own I/O (repositories, gateways, platform wrappers; in a Löwy architecture: ResourceAccess) are the edges: I/O there is correct.
 
 ## Steps
 
-1. Find the domain code: the profile's domain folders, otherwise `Domain/` folders, records, `Create` factories, `Result<`/`Optional<` signatures, Engines, and the types Managers pass around.
+1. Find the domain code: the profile's domain folders, otherwise `Domain/` folders, records, `Create` factories, `Result<`/`Optional<` signatures, pure domain services (Löwy Engines), and the types that application services or workflow entry points (Löwy Managers) pass around.
 2. For each type, ask the DMF questions:
    - Which combinations of its fields are nonsense, and can code build them (public constructor, positional record, `init`, `with`, `default` struct, nullable field, bool flag)?
    - Is every domain primitive wrapped, and is `Create` the only way in?

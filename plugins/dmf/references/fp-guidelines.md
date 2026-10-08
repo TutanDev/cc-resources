@@ -11,11 +11,11 @@ Ask whether it depends on anything besides its inputs, whether it has any effect
 
 Apply these before flagging anything:
 
-- **Framework boundaries are not violations.** Mutation and I/O in Unity lifecycle methods (`Awake`, `OnEnable`, `Update`, `OnDestroy`), event handlers and the composition root are the imperative shell.
+- **Framework boundaries are not violations.** Mutation and I/O in the composition root, Unity lifecycle methods (`Awake`, `OnEnable`, `Update`, `OnDestroy`), event handlers, and the adapters that own I/O (repositories, gateways, platform wrappers; in a Löwy architecture: ResourceAccess) are the imperative shell.
   Flag them only when business logic hides inside them.
 - **Hot paths keep imperative code.** In per-frame code (72-120 Hz loops, rendering, tracking), loops, mutable structs and pooled buffers are correct; LINQ, closures and `Result` allocations are the violation there.
   Never propose G04 or G05 for per-frame code.
-- **Löwy contracts stay interfaces.** G08 never applies to service contracts between subsystems or layers (Manager, Engine and ResourceAccess interfaces), or to interfaces that group related operations or carry domain meaning.
+- **Module contracts stay interfaces.** G08 never applies to contracts between modules, layers or assemblies (in a Löwy architecture: Manager, Engine and ResourceAccess contracts), or to interfaces that group related operations or carry domain meaning.
 - **G05 is about readability.** Rewrite a loop as LINQ only when the pipeline is clearer than the loop.
 - **G02 respects identity.** A type with identity semantics (an entity, a Unity object, a handle) is not a record candidate.
 - **Group repeats.** One finding per pattern, with every location under `occurrences`.
@@ -78,7 +78,7 @@ Over a union, the default arm throws for an unhandled case instead of returning 
 
 ## G08 - Functions over single-method interfaces
 
-Inside a service, a one-method interface with one implementation used only for test seams becomes a delegate or `Func<>`, baked in by partial application.
+Inside a module, a one-method interface with one implementation used only for test seams becomes a delegate or `Func<>`, baked in by partial application.
 See Guardrails for the interfaces that stay.
 
 ```csharp
@@ -106,7 +106,7 @@ This matters most with state-passing overloads such as `Match(state, ..)`.
 ## G12 - Separate logic from I/O
 
 Business logic does not call `File`, `HttpClient`, `PlayerPrefs`, `UnityWebRequest`, `Resources.Load`, platform SDKs or loggers in the middle of a computation.
-Extract the pure core; the caller (a Manager or ResourceAccess) performs I/O before and after.
+Extract the pure core; the caller (the application service or workflow entry point, or an adapter that owns the I/O; in a Löwy architecture: a Manager or ResourceAccess) performs I/O before and after.
 
 ```csharp
 // before

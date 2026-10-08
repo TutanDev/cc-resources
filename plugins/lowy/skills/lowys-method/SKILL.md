@@ -12,7 +12,7 @@ description: >
   Löwy explicitly - the vocabulary is the signal.
 ---
 
-Part of the `lowy-dmf` plugin: invoke sibling skills by their namespaced name (for example `lowy-dmf:list-volatilities`).
+Part of the `lowy` plugin, which depends on the `dmf` plugin: invoke skills by their namespaced name (`lowy:list-volatilities` for this plugin, `dmf:domain-modeling` for DMF).
 
 # Löwy's Method - Orchestrator
 
@@ -27,11 +27,11 @@ Determine the user's intent, then invoke the matching skill:
 
 | User intent | Skill | Output File | When to use |
 |---|---|---|---|
-| Scoping a system, identifying what could change, building a volatilities list | `lowy-dmf:list-volatilities` | `02-volatilities.md` | User is starting decomposition, identifying areas of change, or has requirements to analyze |
-| Classifying services into layers, naming services, checking Design Don'ts | `lowy-dmf:classify-structure` | `03-layered-architecture.md` | User has candidate services and needs to assign them to layers, name them, or validate placement |
-| Proving the architecture supports required behavior via call chains | `lowy-dmf:validate-use-cases` | `05-call-chains.md` | User has a layered architecture and needs to verify it handles core use cases |
-| Producing call chain diagrams, sequence diagrams, or swim lane diagrams | `lowy-dmf:generate-diagram` | (visual output) | User needs visual representation of call chains or architecture |
-| Deciding how services communicate (direct, queued, Pub/Sub, Message Bus) | `lowy-dmf:wire-services` | `07-service-wiring.md` | User needs to choose communication patterns between services |
+| Scoping a system, identifying what could change, building a volatilities list | `lowy:list-volatilities` | `02-volatilities.md` | User is starting decomposition, identifying areas of change, or has requirements to analyze |
+| Classifying services into layers, naming services, checking Design Don'ts | `lowy:classify-structure` | `03-layered-architecture.md` | User has candidate services and needs to assign them to layers, name them, or validate placement |
+| Proving the architecture supports required behavior via call chains | `lowy:validate-use-cases` | `05-call-chains.md` | User has a layered architecture and needs to verify it handles core use cases |
+| Producing call chain diagrams, sequence diagrams, or swim lane diagrams | `lowy:generate-diagram` | (visual output) | User needs visual representation of call chains or architecture |
+| Deciding how services communicate (direct, queued, Pub/Sub, Message Bus) | `lowy:wire-services` | `07-service-wiring.md` | User needs to choose communication patterns between services |
 
 Each phase skill produces a numbered file in the design directory `.claude/docs/design/<topic>/`.
 Downstream phases consume upstream files. Verify the required input files exist before invoking a phase.
@@ -43,23 +43,23 @@ Downstream phases consume upstream files. Verify the required input files exist 
 
 Some requests span multiple phases. Composite skills and workflows handle the common sequences; invoke them instead of re-implementing their steps:
 
-- **`lowy-dmf:system-decomposer`** - Design from scratch: `list-volatilities` → `classify-structure` → `validate-use-cases` → `wire-services` (when communication patterns matter) → `generate-diagram`, producing `02` → `03` → `05` → `07` + diagrams, with user checkpoints between phases.
-- **`lowy-dmf:arch-reviewer`** - Interactive review of an existing architecture (code or description): the `lowy-reviewer` agent → use cases confirmed with the user → the `call-chain-validator` agent → scorecard report.
-- **`/lowy-dmf:design-check`** (workflow) - Check a finished design directory: every use case's call chain, the Design Don'ts, a change simulation per volatility axis, the DMF check of `04`, and staleness.
-- **`/lowy-dmf:arch-audit`** (workflow) - Audit code with several lenses in parallel (Löwy, call chains, DMF, functional style), verify each finding adversarially, and write one ranked report.
-- **`lowy-dmf:fitness-tests`** - Turn the mechanical rules into EditMode tests that fail on new violations, with the profile's deviations and debt as the baseline.
+- **`lowy:system-decomposer`** - Design from scratch: `list-volatilities` → `classify-structure` → `validate-use-cases` → `wire-services` (when communication patterns matter) → `generate-diagram`, producing `02` → `03` → `05` → `07` + diagrams, with user checkpoints between phases.
+- **`lowy:arch-reviewer`** - Interactive review of an existing architecture (code or description): the `lowy-reviewer` agent → use cases confirmed with the user → the `call-chain-validator` agent → scorecard report.
+- **`/lowy:design-check`** (workflow) - Check a finished design directory: every use case's call chain, the Design Don'ts, a change simulation per volatility axis, the DMF check of `04`, and staleness.
+- **`/lowy:arch-audit`** (workflow) - Audit code with several lenses in parallel (Löwy, call chains, DMF, functional style), verify each finding adversarially, and write one ranked report.
+- **`lowy:fitness-tests`** - Turn the mechanical rules into EditMode tests that fail on new violations, with the profile's deviations and debt as the baseline.
 
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
-Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `call-chain-validator` per core use case, plus `lowy-reviewer` on `03` and `dmf-reviewer` on `04`.
+Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents (`lowy:lowy-reviewer`, `lowy:call-chain-validator`, `dmf:dmf-reviewer`, `dmf:fp-reviewer`) in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `lowy:call-chain-validator` per core use case, plus `lowy:lowy-reviewer` on `03` and `dmf:dmf-reviewer` on `04`.
 
 Read-only agents, for delegation from any phase:
 
 | Agent | Use for |
 |---|---|
-| `lowy-dmf:lowy-reviewer` | Layers, naming, Design Don'ts, ratios and smells for one code path or design |
-| `lowy-dmf:call-chain-validator` | Tracing given use cases through a design or code, hop by hop |
-| `lowy-dmf:dmf-reviewer` | Domain types, workflows, errors and DTOs (DMF) |
-| `lowy-dmf:fp-reviewer` | Function-level functional style |
+| `lowy:lowy-reviewer` | Layers, naming, Design Don'ts, ratios and smells for one code path or design |
+| `lowy:call-chain-validator` | Tracing given use cases through a design or code, hop by hop |
+| `dmf:dmf-reviewer` | Domain types, workflows, errors and DTOs (DMF) |
+| `dmf:fp-reviewer` | Function-level functional style |
 
 `wire-services` always runs after `validate-use-cases`, because it consumes `05-call-chains.md`.
 

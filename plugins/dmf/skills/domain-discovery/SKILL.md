@@ -1,5 +1,5 @@
 ---
-name: dmf-domain-discovery
+name: domain-discovery
 description: >
   Discover and document a domain following "Domain Modeling Made Functional" methodology.
   Produces a structured domain document from requirements, conversations, or descriptions.
@@ -10,14 +10,14 @@ description: >
   "capture requirements", "model this business process", "what are the workflows", "domain document",
   "domain overview". Also trigger when a user describes a business problem or system they want to
   build and needs the domain decomposed before modeling types or writing code. This skill should
-  run BEFORE dmf-domain-modeling - it produces the structured input that modeling consumes.
+  run BEFORE dmf:domain-modeling - it produces the structured input that modeling consumes.
 ---
 
 # Domain Discovery (DMF Methodology)
 
 This skill takes raw domain input - descriptions, conversations, requirements, existing docs -
 and produces a structured domain document. The output feeds directly into the
-`dmf-domain-modeling` skill for type-level modeling.
+`dmf:domain-modeling` skill for type-level modeling.
 
 ## Core Philosophy
 
@@ -216,11 +216,11 @@ Questions are valuable output - they prevent premature implementation.
 The skill produces a single markdown document with this structure.
 Read `references/output-template.md` for the full template.
 
-Save the output as **`01-domain-discovery.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`01-domain-discovery.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 
 **Input:** Raw requirements, interviews, business descriptions.
 
-**Output file:** `01-domain-discovery.md` - consumed by Phase 2 (`list-volatilities`), Phase 3 (`classify-structure`), Phase 4 (`dmf-domain-modeling`), Phase 5 (`validate-use-cases`), and Phase 8 (`dmf-serialization-persistence`).
+**Output file:** `01-domain-discovery.md` - consumed by Phase 4 (`dmf:domain-modeling`), Phase 6 (`dmf:workflow-implementation`) and Phase 8 (`dmf:serialization-persistence`); with the `lowy` plugin, also Phases 2, 3 and 5 (`lowy:list-volatilities`, `lowy:classify-structure`, `lowy:validate-use-cases`).
 
 ## Anti-Patterns to Avoid
 
@@ -256,5 +256,5 @@ Discovery is done when:
 - [ ] Open questions are documented (not resolved - just documented)
 - [ ] Non-functional requirements are captured
 
-The output document is now ready to be consumed by `dmf-domain-modeling` for
+The output document is now ready to be consumed by `dmf:domain-modeling` for
 type-level modeling.

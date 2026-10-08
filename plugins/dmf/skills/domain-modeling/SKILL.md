@@ -1,5 +1,5 @@
 ---
-name: dmf-domain-modeling
+name: domain-modeling
 description: >
   Model domains with algebraic types (C# by default, F# on request) following "Domain Modeling Made Functional" methodology.
   Use this skill whenever the task involves defining domain types, modeling entities, value objects,
@@ -316,14 +316,17 @@ Before implementing, verify:
 
 ## Output Format
 
-Save the output as **`04-domain-model.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`04-domain-model.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
-**Input files:** `03-layered-architecture.md` §8 (service→bounded context mapping) + `01-domain-discovery.md` §6-7 (data structures + ubiquitous language glossary). If `03-layered-architecture.md` does not exist, organize types by bounded context from `01-domain-discovery.md` instead.
+**Input files:** `01-domain-discovery.md` §6-8 (workflows, data structures, ubiquitous language).
+Optional, with the `lowy` plugin: `03-layered-architecture.md` §8 (service → bounded context mapping), used when it exists.
+If `03-layered-architecture.md` does not exist, organize types by the bounded contexts in `01-domain-discovery.md` §2 instead, and say in the output that no service mapping was used.
 
-**Output file:** `04-domain-model.md` - consumed by Phase 6 (`dmf-workflow-implementation`), Phase 7 (`wire-services` - to identify DTO boundaries), and Phase 8 (`dmf-serialization-persistence`).
+**Output file:** `04-domain-model.md` - consumed by Phase 6 (`dmf:workflow-implementation`) and Phase 8 (`dmf:serialization-persistence`); with the `lowy` plugin, also Phase 7 (`lowy:wire-services`, to identify DTO boundaries).
 
-Organize the output by service (or bounded context). For each service, include:
+Organize the output by bounded context (or by service, when `03-layered-architecture.md` maps services to contexts).
+For each one, include:
 1. Simple constrained types (with smart constructor signatures)
 2. Record types (AND types)
 3. Choice types (OR types / discriminated unions)

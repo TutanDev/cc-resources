@@ -121,7 +121,7 @@ Save the output as **`07-service-wiring.md`** in the design directory `.claude/d
 **Input files:** `03-layered-architecture.md` (services + layers) + `05-call-chains.md` (validated call patterns) + `04-domain-model.md` (domain types behind each §6 DTO boundary).
 If `04-domain-model.md` does not exist, write `TBD (no 04)` in the Domain Type Source column.
 
-**Output file:** `07-service-wiring.md` - consumed by Phase 8 (`dmf-serialization-persistence`).
+**Output file:** `07-service-wiring.md` - consumed by Phase 8 (`dmf:serialization-persistence`).
 
 Produce the complete document per the template: communication level assessment, wiring table with patterns, event catalog, constraint compliance audit, per-use-case wiring flows, DTO boundary list, and open questions.
 

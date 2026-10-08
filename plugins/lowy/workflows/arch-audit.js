@@ -37,10 +37,10 @@ const input = parseInput(args, 'target', {
 })
 const target = (input.target || '.').trim()
 const LENSES = {
-  lowy: { agentType: 'lowy-dmf:lowy-reviewer', name: 'Löwy structure' },
-  chains: { agentType: 'lowy-dmf:call-chain-validator', name: 'call chains' },
-  dmf: { agentType: 'lowy-dmf:dmf-reviewer', name: 'DMF domain modeling' },
-  fp: { agentType: 'lowy-dmf:fp-reviewer', name: 'functional style' },
+  lowy: { agentType: 'lowy:lowy-reviewer', name: 'Löwy structure' },
+  chains: { agentType: 'lowy:call-chain-validator', name: 'call chains' },
+  dmf: { agentType: 'dmf:dmf-reviewer', name: 'DMF domain modeling' },
+  fp: { agentType: 'dmf:fp-reviewer', name: 'functional style' },
 }
 const lenses = input.lenses && input.lenses.length ? input.lenses : Object.keys(LENSES)
 const unknownLenses = lenses.filter(l => !LENSES[l])
@@ -223,7 +223,7 @@ ${scopeNote(s)}
 ${profileNote()}
 For each finding:
 - Open \`file\` at \`lines\` and check that the evidence is really there and says what the finding claims.
-- Check that the rule applies: re-read the rule in your references, including relaxed rules and guardrails (for example, Engines may call ResourceAccess; Unity lifecycle methods and per-frame code are boundaries for functional style; Löwy contracts stay interfaces).
+- Check that the rule applies: re-read the rule in your references, including relaxed rules and guardrails (for example, Engines may call ResourceAccess; Unity lifecycle methods and per-frame code are boundaries for functional style; module contracts stay interfaces).
 - Check the status against the profile: \`debt\` and \`approved\` need a matching entry; consistent use in the codebase is not approval.
 - Check the severity against its real impact.
 - A file outside the subsystem is not by itself a reason to refute: refute only when the problem has nothing to do with this subsystem's boundary.

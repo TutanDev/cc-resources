@@ -3,7 +3,7 @@
 When completing the classification phase, produce a markdown file following this template.
 Save the file as `03-layered-architecture.md` in the design directory `.claude/docs/design/<topic>/`.
 
-This file is consumed by Phase 4 (`dmf-domain-modeling`), Phase 5 (`validate-use-cases`),
+This file is consumed by Phase 4 (`dmf:domain-modeling`), Phase 5 (`validate-use-cases`),
 and Phase 7 (`wire-services`).
 
 ---
@@ -149,7 +149,7 @@ that it serves. This mapping feeds Phase 4 (domain type modeling per service).
 
 ## 10. Next Steps
 
-- [ ] Model domain types for each service using `dmf-domain-modeling`
-- [ ] Input: this document's §2 + §8, plus `01-domain-discovery.md` §6–7
+- [ ] Model domain types for each service using `dmf:domain-modeling`
+- [ ] Input: this document's §2 + §8, plus `01-domain-discovery.md` §6-8 (workflows, data structures, ubiquitous language)
 - [ ] Output: `04-domain-model.md`
 ```

@@ -1,5 +1,5 @@
 ---
-name: dmf-serialization-persistence
+name: serialization-persistence
 description: >
   Implement serialization (DTOs, JSON, Unity serializers) and persistence (database, CQRS) for domain models (C# by default, F# on request)
   following "Domain Modeling Made Functional." Use this skill whenever creating DTOs, converting
@@ -392,19 +392,21 @@ Infrastructure/
 
 ## Output Format
 
-Save the output as **`08-serialization-bridge.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`08-serialization-bridge.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
-**Input files:** `04-domain-model.md` (domain types to serialize) + `07-service-wiring.md` §6 (DTO boundaries between services) + `07-service-wiring.md` §3 (event catalog with payloads) + `06-workflow-pipelines.md` (I/O points at pipeline edges).
+**Input files:** `04-domain-model.md` (domain types to serialize) + `06-workflow-pipelines.md` (I/O points at pipeline edges) + `07-service-wiring.md` §6 (DTO boundaries between services) and §3 (event catalog with payloads) if it exists (from the `lowy` plugin).
+If `07-service-wiring.md` does not exist, derive the boundaries from `01-domain-discovery.md` §2-3 (each cross-context relationship in the context map), every persistence store and external system named in `01-domain-discovery.md`, `04-domain-model.md` or `06-workflow-pipelines.md`, and the event payloads from the `01-domain-discovery.md` §4 domain events that cross a context boundary, and say in the output that no service wiring was used.
+If `01-domain-discovery.md` does not exist either, derive them from the bounded contexts and event types in `04-domain-model.md` and the I/O points in `06-workflow-pipelines.md`.
 
 **Output file:** `08-serialization-bridge.md` - this is the final architecture artifact.
 
-Organize the output by boundary. For each service boundary and event channel, include:
+Organize the output by boundary. For each boundary (between services or bounded contexts, to a persistence store, or to an external system) and each event channel, include:
 1. DTO type definitions (all fields as primitives)
 2. `fromDomain` functions (domain → DTO, always succeeds)
 3. `toDomain` functions (DTO → domain, returns Result)
 4. Serialization format (JSON/XML/binary) and any config
-5. Persistence strategy per service (document DB, relational, event store, in-memory)
+5. Persistence strategy per service or bounded context (document DB, relational, event store, in-memory)
 6. Read model definitions (if CQRS applies)
 7. Database schema sketch (if relational - tables, key columns, choice-type mapping strategy)
 8. Versioning and migration plan for every persisted DTO

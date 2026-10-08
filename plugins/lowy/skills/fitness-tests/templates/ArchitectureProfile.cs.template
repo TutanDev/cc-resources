@@ -1,4 +1,4 @@
-// Generated from .claude/docs/architecture.md by /lowy-dmf:fitness-tests on {{DATE}}.
+// Generated from .claude/docs/architecture.md by /lowy:fitness-tests on {{DATE}}.
 // Regenerate it when the profile's Mapping, Approved deviations or Known debt change; do not edit it by hand.
 using Mono.Cecil;
 

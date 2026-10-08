@@ -9,7 +9,7 @@ if nothing is known yet, say so explicitly.
 ```markdown
 # Domain Discovery: [System Name]
 
-> Generated from: [source - interview transcript, requirements doc, conversation, etc.]
+> Source: [interview transcript, requirements doc, conversation, etc.]
 > Date: [date]
 > Status: [Draft | Review | Approved]
 
@@ -215,9 +215,9 @@ data [TypeName] =
 ## 10. Next Steps
 
 - [ ] Resolve open questions with domain experts
-- [ ] Begin type-level modeling of [target context] using `dmf-domain-modeling`
-- [ ] Define F# types for simple/constrained types
-- [ ] Define F# types for each lifecycle stage
+- [ ] Begin type-level modeling of [target context] using `dmf:domain-modeling`
+- [ ] Define simple/constrained types (C# by default, F# on request)
+- [ ] Define types for each lifecycle stage
 - [ ] Define workflow function types with explicit dependencies and effects
 ```
 

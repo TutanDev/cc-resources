@@ -50,14 +50,14 @@ but do not depend on each other. Similarly Phases 6 and 7 can overlap.
 - **Template:** the `dmf:domain-discovery` skill's own output template (in the `dmf` plugin)
 - **Consumes:** Raw requirements, interviews, business descriptions
 - **Produces:** Events, commands, bounded contexts, context map, workflows, data structures, ubiquitous language, open questions
-- **Fed into:** 02 (core use cases come from here), 03 (bounded contexts), 04 (data structures + workflows), 05 (workflows to map onto call chains), 08 (workflow list)
+- **Fed into:** 02 (core use cases come from here), 03 (bounded contexts), 04 (workflows, data structures, ubiquitous language), 05 (workflows to map onto call chains), 06 (workflows, only when 05 is absent), 08 (context map, domain events, external systems, only when 07 is absent)
 
 ### 02-volatilities.md
 - **Phase:** 2 - Decompose
 - **Methodology:** Löwy
 - **Skill:** `lowy:list-volatilities`
 - **Template:** `skills/list-volatilities/references/output-template.md`
-- **Consumes:** `01-domain-discovery.md` (domain overview, workflows, bounded contexts)
+- **Consumes:** `01-domain-discovery.md` (domain overview, workflows, bounded contexts; if present)
 - **Produces:** Core use cases, axes of volatility, solutions-vs-requirements scrub, candidate services
 - **Fed into:** 03 (candidate services), 05 (core use cases list)
 
@@ -75,7 +75,7 @@ but do not depend on each other. Similarly Phases 6 and 7 can overlap.
 - **Methodology:** DMF
 - **Skill:** `dmf:domain-modeling`
 - **Template:** (generated as C# type definitions by default, F# on request, organized per service; see `csharp-mapping.md` in the `dmf` plugin, which the `dmf` skills load themselves)
-- **Consumes:** `03-layered-architecture.md` §8 (service→context mapping) + `01-domain-discovery.md` §6-8 (workflows, data structures, ubiquitous language)
+- **Consumes:** `03-layered-architecture.md` §8 (service→context mapping; if present) + `01-domain-discovery.md` §6-8 (workflows, data structures, ubiquitous language)
 - **Produces:** Simple constrained types, records, discriminated unions, workflow type signatures, per service
 - **Fed into:** 06 (types to implement), 07 (domain types that need DTOs at boundaries), 08 (types to serialize)
 
@@ -93,7 +93,7 @@ but do not depend on each other. Similarly Phases 6 and 7 can overlap.
 - **Methodology:** DMF
 - **Skill:** `dmf:workflow-implementation`
 - **Template:** (generated as pipeline code, organized per workflow)
-- **Consumes:** `04-domain-model.md` (domain types) + `05-call-chains.md` §7 (workflow→service mapping; if present)
+- **Consumes:** `04-domain-model.md` (domain types) + `05-call-chains.md` §7 (workflow→service mapping; if present, else `01-domain-discovery.md` §6 workflows)
 - **Produces:** Pipeline step implementations, composition root, dependency injection, error handling strategy
 - **Fed into:** 08 (implementations that need I/O bridges)
 
@@ -111,7 +111,7 @@ but do not depend on each other. Similarly Phases 6 and 7 can overlap.
 - **Methodology:** DMF
 - **Skill:** `dmf:serialization-persistence`
 - **Template:** (generated as DTO definitions + fromDomain/toDomain code)
-- **Consumes:** `04-domain-model.md` (domain types) + `07-service-wiring.md` §6 (DTO boundaries) and §3 (event catalog; both if present) + `06-workflow-pipelines.md` (I/O points)
+- **Consumes:** `04-domain-model.md` (domain types) + `07-service-wiring.md` §6 (DTO boundaries) and §3 (event catalog; both if present, else `01-domain-discovery.md` §2-4: bounded contexts, context map, domain events) + `06-workflow-pipelines.md` (I/O points)
 - **Produces:** DTO types, fromDomain/toDomain functions, persistence strategy, event serialization
 - **Fed into:** Implementation (this is the final architecture artifact)
 

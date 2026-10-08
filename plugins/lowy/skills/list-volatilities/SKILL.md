@@ -29,7 +29,7 @@ Ask the user for:
 - Known constraints (tech stack, team size, existing systems)
 
 ### Step 2: Identify Core Use Cases
-Before decomposing, identify the 2–6 core use cases (see `references/decomposition.md` §3 if composition reference is needed).
+Before decomposing, identify the 2–6 core use cases (see `${CLAUDE_PLUGIN_ROOT}/references/composition.md` §2 if composition reference is needed).
 These are the essence of the business, not CRUD operations.
 
 ### Step 3: Apply the Axes of Volatility

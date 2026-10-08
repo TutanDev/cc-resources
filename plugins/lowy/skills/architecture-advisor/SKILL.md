@@ -10,11 +10,12 @@ description: >
   "system design", "decompose and model", "macro and micro architecture", "service
   boundaries and domain types", "where do I start with design", or a system description
   with no methodology named. Entry point for architecture conversations not owned by one
-  methodology; if the user names Löwy or DMF, route to `lowys-method` or
-  `dmf-orchestrator` instead.
+  methodology; if the user names Löwy or DMF, route to `lowy:lowys-method` or
+  `dmf:orchestrator` instead.
 ---
 
-Part of the `lowy-dmf` plugin: invoke sibling skills by their namespaced name (for example `lowy-dmf:list-volatilities`).
+Part of the `lowy` plugin, which depends on the `dmf` plugin: invoke skills by their namespaced name (`lowy:list-volatilities` for this plugin, `dmf:domain-modeling` for DMF).
+The DMF phases are skills of the `dmf` plugin, installed with this plugin as a dependency.
 
 # Architecture Advisor - Meta-Orchestrator
 
@@ -55,16 +56,17 @@ Each phase produces a numbered markdown file in `.claude/docs/design/<topic>/`. 
 
 | Phase | Methodology | Skill | Output File | Consumes |
 |---|---|---|---|---|
-| 1. Understand | DMF | `dmf-domain-discovery` | `01-domain-discovery.md` | Raw requirements |
-| 2. Decompose | Löwy | `list-volatilities` | `02-volatilities.md` | `01` |
-| 3. Structure | Löwy | `classify-structure` | `03-layered-architecture.md` | `01`, `02` |
-| 4. Model Internals | DMF | `dmf-domain-modeling` | `04-domain-model.md` | `01`, `03` |
-| 5. Validate | Löwy | `validate-use-cases` | `05-call-chains.md` | `01`, `02`, `03` |
-| 6. Implement | DMF | `dmf-workflow-implementation` | `06-workflow-pipelines.md` | `04`, `05` |
-| 7. Wire | Löwy | `wire-services` | `07-service-wiring.md` | `03`, `04`, `05` |
-| 8. Bridge | DMF | `dmf-serialization-persistence` | `08-serialization-bridge.md` | `04`, `06`, `07` |
+| 1. Understand | DMF | `dmf:domain-discovery` | `01-domain-discovery.md` | Raw requirements |
+| 2. Decompose | Löwy | `lowy:list-volatilities` | `02-volatilities.md` | `01` |
+| 3. Structure | Löwy | `lowy:classify-structure` | `03-layered-architecture.md` | `01`, `02` |
+| 4. Model Internals | DMF | `dmf:domain-modeling` | `04-domain-model.md` | `01`, `03` |
+| 5. Validate | Löwy | `lowy:validate-use-cases` | `05-call-chains.md` | `01`, `02`, `03` |
+| 6. Implement | DMF | `dmf:workflow-implementation` | `06-workflow-pipelines.md` | `04`, `05` |
+| 7. Wire | Löwy | `lowy:wire-services` | `07-service-wiring.md` | `03`, `04`, `05` |
+| 8. Bridge | DMF | `dmf:serialization-persistence` | `08-serialization-bridge.md` | `04`, `06`, `07` |
 
 Löwy phases use `01` and `04` when present and fall back to the user's input when not.
+DMF phases use `03`, `05` and `07` when present and fall back to `01` and the earlier DMF files when not.
 Phases 4 and 5 can run in parallel (both consume Phase 3 but not each other).
 Phases 6 and 7 can also overlap.
 
@@ -78,8 +80,8 @@ After each phase:
 
 > "Phase 3 complete - `03-layered-architecture.md` defines the service boundaries.
 > Now we shift to micro-architecture: modeling the domain types inside each service.
-> Phase 4 will consume `03-layered-architecture.md` §8 and `01-domain-discovery.md` §6-7
-> to produce `04-domain-model.md`."
+> Phase 4 will consume `03-layered-architecture.md` §8 and `01-domain-discovery.md` §6-8
+> (workflows, data structures, ubiquitous language) to produce `04-domain-model.md`."
 
 **On re-entry:** If the user returns to modify an earlier phase's output, warn that all downstream files may be stale. List which files are affected and offer to regenerate them.
 
@@ -113,18 +115,18 @@ Not every project needs all 8 phases. Common partial paths:
 
 - **"Just decompose this system"**: Phases 1 → 2 → 3 (Understand → Decompose → Structure)
 - **"I have services, model the internals"**: Phase 4 (Model Internals), optionally → 5 → 6
-- **"Review my architecture"**: Route to `arch-reviewer` (Löwy)
-- **"Audit this codebase"** (Löwy, DMF and functional style together): run the `/lowy-dmf:arch-audit` workflow
-- **"Check my design before I build it"**: run the `/lowy-dmf:design-check` workflow on the design directory
-- **"Model this domain"**: Route to `dmf-orchestrator` (full DMF pipeline)
+- **"Review my architecture"**: Route to `lowy:arch-reviewer` (Löwy)
+- **"Audit this codebase"** (Löwy, DMF and functional style together): run the `/lowy:arch-audit` workflow
+- **"Check my design before I build it"**: run the `/lowy:design-check` workflow on the design directory
+- **"Model this domain"**: Route to `dmf:orchestrator` (full DMF pipeline)
 - **"I have types, implement them"**: Phase 6 (Implement) → 8 (Bridge)
 
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
-Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `call-chain-validator` per core use case, plus `lowy-reviewer` on `03` and `dmf-reviewer` on `04`.
+Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents (`lowy:lowy-reviewer`, `lowy:call-chain-validator`, `dmf:dmf-reviewer`, `dmf:fp-reviewer`) in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `lowy:call-chain-validator` per core use case, plus `lowy:lowy-reviewer` on `03` and `dmf:dmf-reviewer` on `04`.
 
 When only one methodology is needed, route directly to its orchestrator:
-- Pure macro question → `lowys-method`
-- Pure micro question → `dmf-orchestrator`
+- Pure macro question → `lowy:lowys-method`
+- Pure micro question → `dmf:orchestrator`
 
 ## Unity / C# Adaptation Rules
 
@@ -157,7 +159,8 @@ If a measured budget still cannot be met, propose an Approved deviations entry f
 
 ### Micro-Architecture (DMF) Adaptations
 
-**Read** `${CLAUDE_PLUGIN_ROOT}/references/csharp-mapping.md`: it is the single source for DMF in C# (unions, smart constructors, errors, pipelines, hot paths, Unity serialization and versioning).
+The single source for DMF in C# (unions, smart constructors, errors, pipelines, hot paths, Unity serialization and versioning) is `csharp-mapping.md` in the `dmf` plugin.
+Delegate C# modeling, pipelines and DTOs to `dmf:domain-modeling`, `dmf:workflow-implementation` and `dmf:serialization-persistence`, which load it themselves, instead of writing DMF code from this skill.
 The two rules with the largest effect in Unity:
 
 - **I/O at the edges → platform access only in ResourceAccess.** `UnityEngine.XR`, `UnityEngine.InputSystem` and `UnityEngine.Rendering` calls belong in ResourceAccess services.

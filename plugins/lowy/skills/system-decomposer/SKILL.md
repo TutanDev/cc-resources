@@ -1,15 +1,15 @@
 ---
 name: system-decomposer
-description: "Composite: runs the full Löwy's Method decomposition of a system or feature (volatilities → layers → call chains → wiring → diagrams) with a checkpoint after each phase. Invoked by `lowys-method` or by the user with /lowy-dmf:system-decomposer."
+description: "Composite: runs the full Löwy's Method decomposition of a system or feature (volatilities → layers → call chains → wiring → diagrams) with a checkpoint after each phase. Invoked by `lowys-method` or by the user with /lowy:system-decomposer."
 argument-hint: <system description or requirements>
 ---
 
-Part of the `lowy-dmf` plugin: invoke sibling skills by their namespaced name (for example `lowy-dmf:list-volatilities`).
+Part of the `lowy` plugin, which depends on the `dmf` plugin: invoke skills by their namespaced name (`lowy:list-volatilities` for this plugin, `dmf:domain-modeling` for DMF).
 
 Execute a full Löwy's Method decomposition for the following system: $ARGUMENTS
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` first.
-All files go to the design directory `.claude/docs/design/<topic>/`; settle `<topic>` before Phase 2.
+All files go to the design directory `.claude/docs/design/<topic>/`; settle `<topic>` before Phase 1, so that `dmf:domain-discovery` writes `01` into the same folder when it runs.
 If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 Follow these phases in order, confirming with the user before advancing to each next phase.
@@ -17,7 +17,7 @@ Phase numbers match the numbered files they produce.
 
 ## Phase 1: Domain Context (optional)
 If `01-domain-discovery.md` exists, use it.
-Otherwise ask whether to run `dmf-domain-discovery` first (recommended when the domain is unfamiliar) or to proceed from the requirements alone.
+Otherwise ask whether to run `dmf:domain-discovery` first (recommended when the domain is unfamiliar) or to proceed from the requirements alone.
 
 ## Phase 2: Decompose → `02-volatilities.md`
 Use the `list-volatilities` skill to:
@@ -63,5 +63,5 @@ Use the `generate-diagram` skill to:
 Present all diagrams as final deliverables.
 
 ## Final Check
-Offer `/lowy-dmf:design-check <topic>`: it re-traces every use case, simulates a change on each volatility axis, checks `04` when it exists, and lists stale files.
+Offer `/lowy:design-check <topic>`: it re-traces every use case, simulates a change on each volatility axis, checks `04` when it exists, and lists stale files.
 Run it again whenever a numbered file changes.

@@ -1,4 +1,4 @@
-// Architecture fitness analyzer, from the lowy-dmf Claude Code plugin (fitness-tests skill).
+// Architecture fitness analyzer, from the lowy Claude Code plugin (fitness-tests skill).
 // Copy this file as is; configure the rules in ArchitectureProfile.cs instead of editing it.
 // It reads compiled assemblies with Mono.Cecil, so it sees every reference, call and allocation,
 // including static calls and calls inside lambdas, without loading the assemblies.

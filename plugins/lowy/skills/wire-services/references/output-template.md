@@ -3,7 +3,7 @@
 When completing the wiring phase, produce a markdown file following this template.
 Save the file as `07-service-wiring.md` in the design directory `.claude/docs/design/<topic>/`.
 
-This file is consumed by Phase 8 (`dmf-serialization-persistence`) and by
+This file is consumed by Phase 8 (`dmf:serialization-persistence`) and by
 implementation teams. It defines all inter-service communication patterns.
 
 ---
@@ -121,7 +121,7 @@ For each core use case, the specific communication flow with patterns annotated.
 ## 6. DTO Boundaries
 
 Every point where data crosses a service boundary requires a DTO.
-This section feeds Phase 8 (`dmf-serialization-persistence`).
+This section feeds Phase 8 (`dmf:serialization-persistence`).
 
 | # | Boundary | From Service | To Service | Direction | DTO Name | Domain Type Source |
 |---|---|---|---|---|---|---|
@@ -139,7 +139,7 @@ This section feeds Phase 8 (`dmf-serialization-persistence`).
 
 ## 8. Next Steps
 
-- [ ] Implement serialization and persistence using `dmf-serialization-persistence`
+- [ ] Implement serialization and persistence using `dmf:serialization-persistence`
 - [ ] Input: `04-domain-model.md` + this document's §6 (DTO Boundaries) + §3 (Event Catalog)
 - [ ] Output: `08-serialization-bridge.md`
 ```

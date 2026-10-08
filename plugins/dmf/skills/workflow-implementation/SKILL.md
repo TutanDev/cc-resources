@@ -1,5 +1,5 @@
 ---
-name: dmf-workflow-implementation
+name: workflow-implementation
 description: >
   Implement domain workflows as composable pipelines (C# by default, F# on request) following "Domain Modeling Made Functional."
   Use this skill whenever implementing a workflow, composing pipeline steps, doing dependency injection
@@ -8,13 +8,13 @@ description: >
   "railroad oriented", "two-track", "partial application", "dependency injection functional",
   "computation expression", "asyncResult", "implement validation step", "implement pricing",
   "compose functions", "function adapter", "composition root". Also trigger when the user has
-  domain types (from dmf-domain-modeling) and needs to write the implementation code.
+  domain types (from dmf:domain-modeling) and needs to write the implementation code.
 ---
 
 # Implementing Workflows as Pipelines (DMF Methodology)
 
 This skill covers implementing domain workflows by composing small, focused functions
-into pipelines. It assumes domain types already exist (see dmf-domain-modeling skill).
+into pipelines. It assumes domain types already exist (see dmf:domain-modeling skill).
 
 ## Language
 
@@ -401,12 +401,13 @@ No mocking libraries needed. Just define lambdas.
 
 ## Output Format
 
-Save the output as **`06-workflow-pipelines.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`06-workflow-pipelines.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
-**Input files:** `04-domain-model.md` (domain types + workflow type signatures) + `05-call-chains.md` §7 (workflow-to-service mapping, showing which service chain implements each workflow).
+**Input files:** `04-domain-model.md` (domain types + workflow type signatures) + `05-call-chains.md` §7 if it exists (workflow-to-service mapping from the `lowy` plugin, showing which service chain implements each workflow).
+If `05-call-chains.md` does not exist, organize the output by the workflows in `01-domain-discovery.md` §6 (if it exists) and the workflow signatures in `04-domain-model.md`, place each workflow in the bounded context that owns it, wire dependencies in the composition root, and say in the output that no call-chain mapping was used.
 
-**Output file:** `06-workflow-pipelines.md` - consumed by Phase 8 (`dmf-serialization-persistence` - to identify I/O points that need bridging).
+**Output file:** `06-workflow-pipelines.md` - consumed by Phase 8 (`dmf:serialization-persistence` - to identify I/O points that need bridging).
 
 Organize the output by workflow. For each workflow, include:
 1. Pipeline overview (step sequence with type signatures)
