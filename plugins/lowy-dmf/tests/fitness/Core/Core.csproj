@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compiles the templates under Unity's constraints: .NET Standard 2.1, C# 9, nullable off, warnings as errors. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>Architecture.Fitness</AssemblyName>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../skills/fitness-tests/templates/ArchitectureModel.cs" Link="ArchitectureModel.cs" />
+    <Compile Include="../../../skills/fitness-tests/templates/ArchitectureFitness.cs" Link="ArchitectureFitness.cs" />
+    <Compile Include="../../../skills/fitness-tests/templates/ArchitectureProfile.cs.template" Link="ArchitectureProfile.cs" />
+    <InternalsVisibleTo Include="FitnessAnalyzer.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Unity's com.unity.nuget.mono-cecil embeds Cecil 0.11.5. -->
+    <PackageReference Include="Mono.Cecil" Version="0.11.5" />
+  </ItemGroup>
+</Project>

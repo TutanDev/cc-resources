@@ -1,0 +1,45 @@
+// Generated from .claude/docs/architecture.md by /lowy-dmf:fitness-tests on {{DATE}}.
+// Regenerate it when the profile's Mapping, Approved deviations or Known debt change; do not edit it by hand.
+using Mono.Cecil;
+
+namespace Architecture.Fitness
+{
+    static class ArchitectureProfile
+    {
+        internal static ArchitectureMap Map() => new ArchitectureMap
+        {
+            // Mapping: the assemblies that hold the project's own code.
+            AssemblyPrefixes = new[] { "Acme." },
+
+            // Mapping: layers that type-name suffixes alone do not reveal (Clients, Utilities, exceptions).
+            Namespaces = new[] { ("Acme.UI", Layer.Client), ("Acme.Common", Layer.Utility) },
+            Types = new[] { ("UnityEngine.PlayerPrefs", Layer.Resource) },
+
+            // Mapping: the composition root, which may reference every layer to wire it.
+            CompositionRoots = new[] { "Acme.Bootstrap" },
+
+            // Platform, network and storage namespaces that only ResourceAccess may touch.
+            ResourceNamespaces = new[] { "UnityEngine.Networking", "System.Net.Http" },
+
+            // Mapping: the messaging API, and how a command differs from an event.
+            Publish = new[] { new MessagingApi("Acme.Messaging.EventBus", "Publish") },
+            Subscribe = new[] { new MessagingApi("Acme.Messaging.EventBus", "Subscribe", "Unsubscribe") },
+            IsEvent = (TypeReference message) => !message.Name.EndsWith("Request"),
+
+            // Mapping: subsystems, for the three-Managers limit.
+            Subsystems = new[] { ("Ordering", new[] { "Acme.Ordering" }) },
+        };
+
+        // Approved deviations: one entry per profile entry. Pattern "Rule|From|To"; a segment may be "*" or end with "*".
+        internal static readonly BaselineEntry[] ApprovedDeviations =
+        {
+            // new BaselineEntry("Design Don't #2: Client calls Engine|Acme.Tracking.HandPoseView|Acme.Tracking.PoseSmoothingEngine",
+            //     "Approved deviations: hand tracking hot path, 2026-05-01"),
+        };
+
+        // Known debt: seeded from the first run with the user's consent, mirrored in the profile, and only ever shrinks.
+        internal static readonly BaselineEntry[] KnownDebt =
+        {
+        };
+    }
+}

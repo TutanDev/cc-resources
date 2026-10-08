@@ -1,0 +1,14 @@
+{
+  "name": "cc-resources",
+  "description": "TutanDev's Claude Code plugins and resources",
+  "owner": {
+    "name": "TutanDev"
+  },
+  "plugins": [
+    {
+      "name": "lowy-dmf",
+      "source": "./plugins/lowy-dmf",
+      "description": "Löwy's Method + Domain Modeling Made Functional: decompose by volatility, classify layers, validate call chains, model domain types in C#, audit existing code with verified multi-agent reviews, and enforce the rules with fitness tests."
+    }
+  ]
+}
