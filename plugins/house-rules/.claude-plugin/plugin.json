@@ -1,0 +1,21 @@
+{
+  "name": "house-rules",
+  "displayName": "House Rules",
+  "version": "0.1.0",
+  "description": "Holds three writing rules at the tool call, so a reminder or a habit cannot win over them: no Claude attribution in commits or pull requests, no em dash in anything written, and one full sentence per line of Markdown.",
+  "author": {
+    "name": "TutanDev",
+    "url": "https://github.com/TutanDev"
+  },
+  "homepage": "https://github.com/TutanDev/cc-resources/tree/main/plugins/house-rules",
+  "repository": "https://github.com/TutanDev/cc-resources",
+  "keywords": [
+    "function-hooks",
+    "guardrails",
+    "git",
+    "commit-messages",
+    "attribution",
+    "markdown",
+    "writing-style"
+  ]
+}
