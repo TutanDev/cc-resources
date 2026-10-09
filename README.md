@@ -55,8 +55,10 @@ Without it `workstation` fails to load, because its dependencies cannot be found
 | See what is installed and whether it loaded | `claude plugin list` |
 | Install a plugin for one repository and everyone who works in it | `claude plugin install <plugin>@cc-resources --scope project` |
 | Get new versions | `claude plugin marketplace update cc-resources`, then `claude plugin update <plugin>@cc-resources` and restart Claude Code |
+| Get new versions at every startup | In a session, `/plugin`, then **Marketplaces**, `cc-resources`, **Enable auto-update**; it is off by default for any marketplace that is not Anthropic's |
 | Turn a plugin off without removing it | `claude plugin disable <plugin>@cc-resources` |
 | Remove a plugin and the dependencies nothing else needs | `claude plugin uninstall <plugin>@cc-resources --prune` |
+| Remove the marketplace | `claude plugin marketplace remove cc-resources`, which also uninstalls every plugin installed from it |
 
 ## External Dependencies
 
