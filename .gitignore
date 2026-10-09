@@ -1,0 +1,7 @@
+# .NET build output, wherever a project sits, so moving a project folder
+# cannot leave its build behind as untracked files. Only the folders the
+# build writes are ignored: a plugin's own bin/ of executables stays tracked.
+**/bin/Debug/
+**/bin/Release/
+obj/
+TestResults/
