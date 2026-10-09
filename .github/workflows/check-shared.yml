@@ -11,6 +11,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-shared.sh
 
+  workstation-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash plugins/workstation/tests/install-statusline.test.sh
+
   lf-checkout:
     # Git for Windows defaults to core.autocrlf=true; plugin files must still check out with LF.
     runs-on: windows-latest

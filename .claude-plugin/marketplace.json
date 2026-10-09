@@ -4,6 +4,9 @@
   "owner": {
     "name": "TutanDev"
   },
+  "allowCrossMarketplaceDependenciesOn": [
+    "claude-plugins-official"
+  ],
   "plugins": [
     {
       "name": "dmf",
@@ -19,6 +22,11 @@
       "name": "house-rules",
       "source": "./plugins/house-rules",
       "description": "Three writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash in anything written, and one full sentence per line of Markdown."
+    },
+    {
+      "name": "workstation",
+      "source": "./plugins/workstation",
+      "description": "The setup for every machine: installs and enables context7 and serena from Anthropic's official marketplace, and sets the cc-resources status line when user settings have none."
     }
   ]
 }
