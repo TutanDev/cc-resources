@@ -2,8 +2,8 @@
 
 The methodology skills of the `dmf` and `lowy` plugins state the rules.
 A project profile states how those rules map onto one codebase.
-Every skill, agent and workflow in both plugins reads the profile before advising, reviewing, or producing artifacts.
-Both plugins keep an identical copy of this contract.
+Every skill, agent and workflow in the `dmf`, `lowy` and `devflow` plugins reads the profile before advising, reviewing, planning, or producing artifacts.
+The three plugins keep identical copies of this contract.
 
 ## Location
 
@@ -20,6 +20,10 @@ If it does not exist, apply the methodology defaults and say so once.
    - with the `lowy` plugin: the messaging API, and how a command differs from an event in it
 2. **Approved deviations** - a table with: rule relaxed, scope (files or subsystems), justification (a measurement, for performance), date, and who approved it.
 3. **Known debt** - existing code that violates a rule and has not been fixed yet.
+4. **Verification** (optional, used by `devflow`) - how to check a change:
+   - the commands that build the code and run each test suite, and how long they take
+   - how to run the app and exercise a feature end to end (for Unity: the batchmode command lines, the scenes, the platforms)
+   - test conventions: where tests live, their naming, and the test framework
 
 ## Precedence
 

@@ -19,6 +19,11 @@
       "description": "Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and fitness tests. Installs dmf as a dependency."
     },
     {
+      "name": "devflow",
+      "source": "./plugins/devflow",
+      "description": "Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises. Installs lowy and dmf as dependencies."
+    },
+    {
       "name": "house-rules",
       "source": "./plugins/house-rules",
       "description": "Three writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash in anything written, and one full sentence per line of Markdown."

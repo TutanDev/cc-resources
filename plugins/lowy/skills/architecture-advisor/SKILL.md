@@ -120,6 +120,8 @@ Not every project needs all 8 phases. Common partial paths:
 - **"Check my design before I build it"**: run the `/lowy:design-check` workflow on the design directory
 - **"Model this domain"**: Route to `dmf:orchestrator` (full DMF pipeline)
 - **"I have types, implement them"**: Phase 6 (Implement) → 8 (Bridge)
+- **"Plan this feature"** (one feature of a system that exists): route to `devflow:plan-feature` when the `devflow` plugin is installed; it writes a phased plan and reviews it with these same lenses.
+  Without it, run Phase 4 for the feature's types and Phase 5 for its use cases.
 
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
 Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents (`lowy:lowy-reviewer`, `lowy:call-chain-validator`, `dmf:dmf-reviewer`, `dmf:fp-reviewer`) in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `lowy:call-chain-validator` per core use case, plus `lowy:lowy-reviewer` on `03` and `dmf:dmf-reviewer` on `04`.

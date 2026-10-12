@@ -1,7 +1,7 @@
 # cc-resources
 
 TutanDev's Claude Code plugin marketplace.
-It holds four plugins: two for designing C# and Unity code, one that enforces writing rules, and one that sets up a machine.
+It holds five plugins: two for designing C# and Unity code, one that runs multi-agent development workflows on them, one that enforces writing rules, and one that sets up a machine.
 
 ## Plugin Index
 
@@ -9,6 +9,7 @@ It holds four plugins: two for designing C# and Unity code, one that enforces wr
 |---|---|---|---|
 | [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers | 5 skills, 2 agents | Nothing |
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
+| [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises | 1 skill, 3 agents, 1 workflow | `lowy` (and through it `dmf`) |
 | [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown | Function hooks on `Bash`, `PowerShell`, `Edit`, `Write` and `NotebookEdit` calls, and on the commit and pull request attribution text | Nothing |
 | [`workstation`](plugins/workstation/README.md) | The setup for every machine: installs and enables `context7` and `serena`, and sets the cc-resources status line when user settings have none | A `SessionStart` hook and the status line script | `context7` and `serena` from `claude-plugins-official` |
 
@@ -68,15 +69,16 @@ Everything a plugin needs beyond this repository, and who needs it.
 
 | Dependency | Needed by | Notes |
 |---|---|---|
-| Plugin dependencies | `lowy`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
+| Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
 | Function hooks | `house-rules` | An early-access API; the plugin was written and tested on Claude Code 2.1.294 |
-| The Workflow tool | `lowy`'s `arch-audit` and `design-check` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers run the same agents directly, without the verification pass |
+| The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
 
 ### Plugins and Marketplaces
 
 | Dependency | Needed by | Notes |
 |---|---|---|
-| `dmf@cc-resources` | `lowy` | Installed with `lowy` |
+| `dmf@cc-resources` | `lowy`, `devflow` | Installed with `lowy` |
+| `lowy@cc-resources` | `devflow` | Installed with `devflow` |
 | The `claude-plugins-official` marketplace | `workstation` | Added by the first interactive session, or by `claude plugin marketplace add anthropics/claude-plugins-official` |
 | `context7@claude-plugins-official` | `workstation` | Installed with `workstation` |
 | `serena@claude-plugins-official` | `workstation` | Installed with `workstation` |
@@ -93,7 +95,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 
 | Dependency | Needed by | Notes |
 |---|---|---|
-| A C# functional library | `dmf`, `lowy` | Examples use Tutan.Functional (`com.tutan.functional`); name yours in `.claude/docs/architecture.md` and the skills translate to it |
+| A C# functional library | `dmf`, `lowy`, `devflow` | Examples use Tutan.Functional (`com.tutan.functional`); name yours in `.claude/docs/architecture.md` and the skills translate to it |
 | Unity Test Framework (`com.unity.test-framework`) | `lowy`'s `fitness-tests` | The generated tests are EditMode NUnit tests |
 | Mono.Cecil (`com.unity.nuget.mono-cecil`) | `lowy`'s `fitness-tests` | The skill asks before adding it; 1.11.6 works with Unity 6.3; outside Unity, the `Mono.Cecil` NuGet package |
 | A Mermaid renderer | `lowy`'s `generate-diagram` and `call-chain-validator` | Optional: diagrams are written as Mermaid text, which GitHub renders |
@@ -105,16 +107,18 @@ Everything a plugin needs beyond this repository, and who needs it.
 | The Claude Code CLI | `claude plugin validate` and `claude plugin test plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/install-statusline.test.sh` |
+| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` |
 | TypeScript (`tsc`) | Optional: type-checking `house-rules` with `tsc -p plugins/house-rules` |
-| GitHub Actions | CI on every push: the shared-contract check and the `workstation` hook tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
+| GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
 
 ## Maintaining
 
-- `dmf` and `lowy` carry identical copies of three contracts: `project-profile.md`, `review-findings.md` and `design-directory.md`, under `plugins/<name>/references/`.
-  An installed plugin cannot read another plugin's files, so edit one copy, copy it to the other plugin, and run `bash scripts/check-shared.sh`; CI runs the same check on every push.
+- `dmf`, `lowy` and `devflow` carry identical copies of three contracts: `project-profile.md`, `review-findings.md` and `design-directory.md`, under `plugins/<name>/references/`.
+  An installed plugin cannot read another plugin's files, so edit one copy, copy it to the other two plugins, and run `bash scripts/check-shared.sh`; CI runs the same check on every push.
 - Run `claude plugin validate .` and `claude plugin validate plugins/<name>` before pushing.
 - Run `claude plugin test plugins/house-rules` after changing its hooks.
 - Run `bash plugins/workstation/tests/install-statusline.test.sh` after changing the `workstation` hook; CI runs it on every push.
+- Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow; CI runs it on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.
 - A dependency on a plugin from another marketplace needs that marketplace listed under `allowCrossMarketplaceDependenciesOn` in `.claude-plugin/marketplace.json`.

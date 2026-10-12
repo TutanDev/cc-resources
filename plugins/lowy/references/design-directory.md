@@ -1,6 +1,6 @@
 # Design Directory Contract
 
-Shared by the `dmf` and `lowy` plugins: each keeps an identical copy of this file, because an installed plugin cannot read another plugin's files.
+Shared by the `dmf`, `lowy` and `devflow` plugins: each keeps an identical copy of this file, because an installed plugin cannot read another plugin's files.
 It defines where numbered design files live, how they are numbered, and when they are stale.
 
 ## Location
@@ -14,7 +14,7 @@ Before any phase, also read the project profile if it exists (see `project-profi
 
 ## Numbering
 
-File numbers are fixed IDs shared by both plugins, so their files interleave in one directory:
+File numbers are fixed IDs shared by the `dmf` and `lowy` plugins, so their files interleave in one directory:
 
 | File | Phase | Plugin | Skill |
 |---|---|---|---|

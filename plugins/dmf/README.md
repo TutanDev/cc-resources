@@ -90,7 +90,7 @@ dmf/
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
-`references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/lowy/references/`: change both, then run `bash scripts/check-shared.sh` from the repository root.
+`references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/lowy/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `claude plugin validate plugins/dmf` before pushing.
 
 ## Sources

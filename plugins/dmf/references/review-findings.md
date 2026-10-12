@@ -1,13 +1,13 @@
 # Review Findings Contract
 
-Every reviewer in the `dmf` and `lowy` plugins reports findings in this shape: the `dmf:dmf-reviewer` and `dmf:fp-reviewer` agents, the `lowy:lowy-reviewer` and `lowy:call-chain-validator` agents, the `lowy:arch-reviewer` skill, and the `/lowy:arch-audit` and `/lowy:design-check` workflows.
-One shape lets the workflows verify, deduplicate and rank findings from different lenses and both plugins.
-Both plugins keep an identical copy of this contract.
+Every reviewer in the `dmf`, `lowy` and `devflow` plugins reports findings in this shape: the `dmf:dmf-reviewer` and `dmf:fp-reviewer` agents, the `lowy:lowy-reviewer` and `lowy:call-chain-validator` agents, the `devflow:plan-reviewer` agent, the `lowy:arch-reviewer` skill, and the `/lowy:arch-audit`, `/lowy:design-check` and `/devflow:review-plan` workflows.
+One shape lets the workflows verify, deduplicate and rank findings from different lenses and plugins.
+The three plugins keep identical copies of this contract.
 
 ## Evidence
 
 - A finding about code cites `file:line` and quotes the lines, read from the file in this session.
-- A finding about a design cites the design file and section (`04-domain-model.md §2`, `03-layered-architecture.md §4`).
+- A finding about a design or a feature plan cites the file and section (`04-domain-model.md §2`, `03-layered-architecture.md §4`, `.claude/docs/plans/discount-codes.md §4.1`).
 - Documentation, comments and commit messages are claims to verify, not evidence.
 - If a rule cannot be checked statically (runtime wiring, reflection, scene references), list it under "Not checked" instead of guessing.
 
@@ -38,14 +38,14 @@ Judge severity by impact in context: the same rule can be critical in a core use
 
 | Field | Content |
 |---|---|
-| `id` | Lens prefix and number: `L-01` (Löwy structure), `C-01` (call chains), `D-01` (DMF), `F-01` (functional style), `X-01` (design-check simulation) |
-| `lens` | `lowy`, `chains`, `dmf`, `fp`, or `change` |
+| `id` | Lens prefix and number: `L-01` (Löwy structure), `C-01` (call chains), `D-01` (DMF), `F-01` (functional style), `X-01` (design-check simulation), `P-01` (plan delivery) |
+| `lens` | `lowy`, `chains`, `dmf`, `fp`, `change`, or `plan` |
 | `rule` | The rule broken, with its number where one exists: `Design Don't #2`, `Invariant 10`, `DMF: illegal states unrepresentable`, `G03` |
 | `status` | `violation`, `debt`, or `approved` |
 | `severity` | `critical`, `major`, `minor`, or `nit` |
-| `file` | Repository-relative path, or the design file |
-| `lines` | `120` or `120-134`; empty for a design section |
-| `evidence` | The quoted code or design text, at most 8 lines |
+| `file` | Repository-relative path, or the design or plan file with its section |
+| `lines` | `120` or `120-134`; empty for a design or plan section |
+| `evidence` | The quoted code, design or plan text, at most 8 lines |
 | `problem` | One or two sentences: what is wrong and why it matters |
 | `fix` | A concrete change: the target type, layer, signature or code shape |
 | `profileRef` | The profile entry for `debt` or `approved`; empty otherwise |

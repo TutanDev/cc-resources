@@ -104,7 +104,7 @@ Reviews from `arch-reviewer`, `arch-audit` and `design-check` go to `.claude/doc
 ## Project Profile
 
 Describe how your codebase maps the methods in `.claude/docs/architecture.md`: folders per layer, naming, messaging API, composition root, functional library, approved deviations, and known debt.
-Every skill, agent and workflow in both plugins reads it first.
+Every skill, agent and workflow in both plugins, and in `devflow`, reads it first.
 It replaces generic platform defaults, never the methodology rules, and a violation counts as accepted only when it is listed as an approved deviation.
 The fitness tests use the same Approved deviations and Known debt as their baseline, so the profile and CI never disagree.
 See `references/project-profile.md` for the contract.
@@ -132,7 +132,7 @@ lowy/
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
-`references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/`: change both, then run `bash scripts/check-shared.sh` from the repository root.
+`references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `claude plugin validate plugins/lowy` before pushing.
 After changing anything under `skills/fitness-tests/templates/`, run `dotnet test plugins/lowy/tests/fitness` (needs the .NET 8 SDK or later); the core project compiles the templates under Unity's constraints (.NET Standard 2.1, C# 9).
 A new analyzer rule needs a case in `tests/fitness/Fixture/Shop.cs` and its expected violation in `AnalyzerTests.cs`.
