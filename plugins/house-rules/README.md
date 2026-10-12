@@ -36,7 +36,8 @@ Nothing written holds an em dash (U+2014); a plain dash takes its place.
   A file that already holds some can still be edited.
 - A NotebookEdit is refused for any em dash.
 - A Bash or PowerShell command is refused for any literal em dash.
-  To search for or replace em dashes, spell the character as an escape: `$'\u2014'` in bash, `[char]0x2014` in PowerShell.
+  To search for or replace em dashes, spell the character by its UTF-8 bytes in bash, `$'\xe2\x80\x94'`, or by its code in PowerShell, `[char]0x2014`.
+  The `$'\u2014'` form is not safe: a tool call can decode it into the character before the hook sees the command.
 
 ### One Sentence per Line
 

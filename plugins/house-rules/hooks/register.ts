@@ -114,7 +114,7 @@ const ATTRIBUTED =
 
 const EM_DASH_IN_COMMAND =
   'The command holds an em dash (U+2014). The user never uses it: write a plain dash "-" instead. ' +
-  "To search for or replace em dashes, spell the character as an escape ($'\\u2014' in bash, [char]0x2014 in PowerShell)."
+  "To search for or replace em dashes, spell the character by its UTF-8 bytes ($'\\xe2\\x80\\x94' in bash) or its code ([char]0x2014 in PowerShell)."
 
 const emDashAddedTo = (path: string) =>
   `The change adds an em dash (U+2014) to ${path}. The user never uses it: write a plain dash "-" instead.`

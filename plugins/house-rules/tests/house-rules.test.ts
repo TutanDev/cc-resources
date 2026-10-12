@@ -100,7 +100,7 @@ describe('em dash', () => {
   test('a shell command holding an em dash is refused, an escaped one runs', async ($, on) => {
     const ran = engine(on)
     const literal = { tool: 'Bash', command: `echo "a ${EM_DASH} b" > notes.md` } as const
-    const escaped = { tool: 'Bash', command: "grep -rn $'\\u2014' docs" } as const
+    const escaped = { tool: 'Bash', command: "grep -rn $'\\xe2\\x80\\x94' docs" } as const
     expect(refusal(await $.tool.call(literal))).toMatch(/plain dash/)
     expect(refusal(await $.tool.call(escaped))).toBeUndefined()
     expect(ran).toEqual(['Bash'])
