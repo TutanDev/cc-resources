@@ -11,7 +11,7 @@ It holds five plugins: two for designing C# and Unity code, one that runs multi-
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
 | [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises | 1 skill, 3 agents, 1 workflow | `lowy` (and through it `dmf`) |
 | [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown | Function hooks on `Bash`, `PowerShell`, `Edit`, `Write` and `NotebookEdit` calls, and on the commit and pull request attribution text | Nothing |
-| [`workstation`](plugins/workstation/README.md) | The setup for every machine: installs and enables `context7` and `serena`, and sets the cc-resources status line when user settings have none | A `SessionStart` hook and the status line script | `context7` and `serena` from `claude-plugins-official` |
+| [`workstation`](plugins/workstation/README.md) | The setup for every machine: installs and enables `context7` and `serena`, sets the cc-resources status line when user settings have none, and allows the reads and writes the cc-resources workflows need | A `SessionStart` hook and the status line script | `context7` and `serena` from `claude-plugins-official` |
 
 Each plugin's README lists its skills, agents and workflows, and how to call them.
 
@@ -72,7 +72,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
 | Function hooks | `house-rules` | An early-access API; the plugin was written and tested on Claude Code 2.1.294 |
 | The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
-| Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json` |
+| Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json`, which `workstation` does for you |
 
 ### Plugins and Marketplaces
 
@@ -107,7 +107,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 |---|---|
 | The Claude Code CLI | `claude plugin validate` and `claude plugin test plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
-| `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/install-statusline.test.sh` |
+| `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/setup-user-settings.test.sh` |
 | Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` and `node plugins/lowy/tests/workflows.test.mjs` |
 | TypeScript (`tsc`) | Optional: type-checking `house-rules` with `tsc -p plugins/house-rules` |
 | GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` and `lowy` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
@@ -118,7 +118,7 @@ Everything a plugin needs beyond this repository, and who needs it.
   An installed plugin cannot read another plugin's files, so edit one copy, copy it to the other two plugins, and run `bash scripts/check-shared.sh`; CI runs the same check on every push.
 - Run `claude plugin validate .` and `claude plugin validate plugins/<name>` before pushing.
 - Run `claude plugin test plugins/house-rules` after changing its hooks.
-- Run `bash plugins/workstation/tests/install-statusline.test.sh` after changing the `workstation` hook; CI runs it on every push.
+- Run `bash plugins/workstation/tests/setup-user-settings.test.sh` after changing the `workstation` hook; CI runs it on every push.
 - Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow, and `node plugins/lowy/tests/workflows.test.mjs` after changing a `lowy` one; CI runs both on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.

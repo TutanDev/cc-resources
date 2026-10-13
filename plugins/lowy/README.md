@@ -76,6 +76,7 @@ Allow both with one of:
   ```
 
 acceptEdits mode is not enough on its own: it allows writes only in the folder Claude Code started in, and no reads outside it.
+The [`workstation`](../workstation/README.md) plugin from this marketplace adds both rules to your user settings when a session starts.
 With `--out`, allow writes to that folder instead.
 A workflow makes one small read and one small write before any reviewer runs, and stops with these options when either is refused, so no review work is lost.
 The documents stay out of `.claude/`, because Claude Code refuses every write there from a background agent, whatever the permissions.

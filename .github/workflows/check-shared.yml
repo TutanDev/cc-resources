@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: bash plugins/workstation/tests/install-statusline.test.sh
+      - run: bash plugins/workstation/tests/setup-user-settings.test.sh
 
   workflows:
     runs-on: ubuntu-latest

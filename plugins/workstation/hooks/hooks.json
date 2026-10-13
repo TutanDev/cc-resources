@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/install-statusline.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/setup-user-settings.sh\""
           }
         ]
       }

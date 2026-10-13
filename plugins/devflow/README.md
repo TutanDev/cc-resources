@@ -112,6 +112,7 @@ acceptEdits mode is not enough on its own: it allows writes only in the folder C
 `~/` is your home folder, so the `Read` rule covers the installed plugins and nothing else.
 `Edit` rules cover every tool that writes files, and the leading `//` makes the pattern match `cc-docs/` wherever it is; without it, the pattern is relative to the folder Claude Code started in.
 A plugin cannot ship these rules: Claude Code ignores permissions in a plugin's settings.
+The [`workstation`](../workstation/README.md) plugin from this marketplace adds both to your user settings when a session starts.
 The workflow makes one small read and one small write before any reviewer runs, and stops with these options when either is refused, so no review work is lost.
 Without them, `plan-feature` still drafts the plan and records your answers, with the writer in the foreground, and Claude Code asks you to approve its reads and writes.
 

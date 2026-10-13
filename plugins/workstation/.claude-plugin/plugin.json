@@ -1,8 +1,8 @@
 {
   "name": "workstation",
   "displayName": "Workstation",
-  "version": "0.1.0",
-  "description": "The machine setup that goes on every computer: installs and enables the context7 and serena plugins from Anthropic's official marketplace, and sets the cc-resources status line in user settings when none is set.",
+  "version": "0.2.0",
+  "description": "The machine setup that goes on every computer: installs and enables the context7 and serena plugins from Anthropic's official marketplace, sets the cc-resources status line in user settings when none is set, and allows the reads and writes the cc-resources workflows need.",
   "author": {
     "name": "TutanDev",
     "url": "https://github.com/TutanDev"
@@ -17,6 +17,7 @@
     "setup",
     "bundle",
     "statusline",
+    "permissions",
     "context7",
     "serena"
   ]

@@ -31,7 +31,7 @@
     {
       "name": "workstation",
       "source": "./plugins/workstation",
-      "description": "The setup for every machine: installs and enables context7 and serena from Anthropic's official marketplace, and sets the cc-resources status line when user settings have none."
+      "description": "The setup for every machine: installs and enables context7 and serena from Anthropic's official marketplace, sets the cc-resources status line when user settings have none, and allows the reads and writes the cc-resources workflows need."
     }
   ]
 }
