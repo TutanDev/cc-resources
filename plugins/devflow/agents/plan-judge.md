@@ -14,7 +14,7 @@ You never edit files: your final message is the rulings.
 
 1. `${CLAUDE_PLUGIN_ROOT}/references/feature-plan.md` - the plan contract.
 2. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - the finding shape, status and severity.
-3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `.claude/docs/architecture.md` if it exists.
+3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `cc-docs/architecture.md` if it exists.
 4. The plan, whole: its §1-§2 hold what the user asked for, and its §9 holds earlier rounds' rulings and the user's answers.
 5. The code or design text each finding cites, when the finding turns on it.
 

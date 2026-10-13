@@ -132,7 +132,7 @@ The **Consumes** lines above are authoritative for what each file's `> Source:` 
 ## Reviews
 
 Reviews are not numbered and feed no phase.
-They go to `.claude/docs/reviews/` at the project root, one file per run:
+They go to `cc-docs/reviews/` at the project root, one file per run:
 
 | Producer | File |
 |---|---|

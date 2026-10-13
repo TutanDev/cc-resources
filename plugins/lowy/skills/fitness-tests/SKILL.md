@@ -40,7 +40,7 @@ What no static test can check, and where it is covered instead:
 
 ## Step 1: Read the Profile
 
-Read `.claude/docs/architecture.md` as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+Read `cc-docs/architecture.md` as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 Collect what `ArchitectureMap` needs:
 
 | `ArchitectureMap` field | From the profile's Mapping |
@@ -108,7 +108,7 @@ Read the results, then report in the shape of `${CLAUDE_PLUGIN_ROOT}/references/
 On a codebase that already has violations, the first run fails.
 For each group, offer the user three choices: fix it, record it as Known debt, or propose an Approved deviation with its justification.
 Mirror every choice in both the profile and `ArchitectureProfile.cs`, after the user agrees.
-If the profile cannot be edited (the session blocks writes under `.claude/`), give the user the exact lines to paste, and say that the tests and the profile disagree until they do.
+If the profile cannot be edited (the session refuses the write), give the user the exact lines to paste, and say that the tests and the profile disagree until they do.
 Known debt only shrinks: `FixedDebtLeavesTheBaseline` fails when a debt item is fixed, so the baseline is updated in the same change.
 
 ## Step 5: Record It

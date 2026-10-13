@@ -7,8 +7,13 @@ The three plugins keep identical copies of this contract.
 
 ## Location
 
-`.claude/docs/architecture.md` at the project root.
+`cc-docs/architecture.md` at the project root.
 If it does not exist, apply the methodology defaults and say so once.
+
+The three plugins keep every document they write under `cc-docs/` at the project root: this profile, the design directories in `cc-docs/design/`, the feature plans in `cc-docs/plans/`, and the review reports in `cc-docs/reviews/`.
+The folder is outside `.claude/` because Claude Code asks for approval of every write under `.claude/`, and refuses it from a workflow's background agents.
+Earlier versions kept these documents in `.claude/docs/`.
+If that folder exists and `cc-docs/` does not, tell the user once and offer to move it with `git mv .claude/docs cc-docs`.
 
 ## Sections
 
@@ -31,6 +36,8 @@ If it does not exist, apply the methodology defaults and say so once.
 - The Mapping section replaces generic platform defaults (for example the Unity baseline in `dmf`'s `csharp-mapping.md`, or the Unity adaptations in `lowy:architecture-advisor`), never methodology rules.
 - A violation is acceptable only when it matches an **Approved deviations** entry: report it as ✅ approved and cite the entry.
 - A violation listed in **Known debt** is reported as ⚠️ pre-existing debt: not a new finding, and never correct.
-- Any other violation is ❌, even when the codebase does it consistently. Consistency is not approval.
+- Any other violation is ❌, even when the codebase does it consistently.
+  Consistency is not approval.
 - A project convention that contradicts a methodology rule without an Approved deviations entry is debt, and the profile should list it as such.
-- Never add an Approved deviations entry yourself. Propose it to the user, who decides.
+- Never add an Approved deviations entry yourself.
+  Propose it to the user, who decides.

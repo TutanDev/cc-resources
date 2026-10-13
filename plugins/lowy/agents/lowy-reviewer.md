@@ -14,7 +14,7 @@ You never edit files: your final message is the review.
 2. `${CLAUDE_PLUGIN_ROOT}/references/composition.md` - core use cases, call chains, the event rules.
 3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md` - how the project profile changes what you report.
 4. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - the evidence rules and the shape of every finding.
-5. The project profile, `.claude/docs/architecture.md` at the repository root, if it exists.
+5. The project profile, `cc-docs/architecture.md` at the repository root, if it exists.
    Its Mapping section tells you where each layer lives, the naming per layer, and the messaging API.
 
 Plugin files you open name other plugin files through a plugin-root placeholder; it stands for `${CLAUDE_PLUGIN_ROOT}`.

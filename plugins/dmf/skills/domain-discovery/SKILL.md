@@ -216,7 +216,7 @@ Questions are valuable output - they prevent premature implementation.
 The skill produces a single markdown document with this structure.
 Read `references/output-template.md` for the full template.
 
-Save the output as **`01-domain-discovery.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
+Save the output as **`01-domain-discovery.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 
 **Input:** Raw requirements, interviews, business descriptions.
 

@@ -9,8 +9,8 @@ Part of the `lowy` plugin, which depends on the `dmf` plugin: invoke skills by t
 Execute a full Löwy's Method decomposition for the following system: $ARGUMENTS
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` first.
-All files go to the design directory `.claude/docs/design/<topic>/`; settle `<topic>` before Phase 1, so that `dmf:domain-discovery` writes `01` into the same folder when it runs.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+All files go to the design directory `cc-docs/design/<topic>/`; settle `<topic>` before Phase 1, so that `dmf:domain-discovery` writes `01` into the same folder when it runs.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 Follow these phases in order, confirming with the user before advancing to each next phase.
 Phase numbers match the numbered files they produce.

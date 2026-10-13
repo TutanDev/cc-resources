@@ -12,7 +12,7 @@ You never edit files: your final message is the review.
 
 1. `${CLAUDE_PLUGIN_ROOT}/references/csharp-mapping.md` - how every DMF concept looks in C#, and its Review Checklist.
 2. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - evidence rules and the finding shape.
-3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `.claude/docs/architecture.md` if it exists.
+3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `cc-docs/architecture.md` if it exists.
    The profile names the functional library and the domain folders; it wins over the mapping's defaults.
 4. For a design review, `${CLAUDE_PLUGIN_ROOT}/skills/domain-modeling/SKILL.md` (the modeling rules and checklist).
 

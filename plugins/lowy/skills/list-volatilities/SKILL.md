@@ -73,7 +73,7 @@ Check the candidate list against these red flags:
 
 **Read** `references/output-template.md` and follow the template exactly.
 
-Save the output as **`02-volatilities.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`02-volatilities.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
 
 **Input file:** `01-domain-discovery.md` (if available - use it for domain context, bounded contexts, and workflow inventory). If not available, gather equivalent context from the user.
 

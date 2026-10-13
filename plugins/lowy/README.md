@@ -62,7 +62,24 @@ Multi-agent runs that fan out reviewers in parallel, try to refute every finding
 | `/lowy:design-check <topic> [--thorough]` | Check a design directory before implementing it: call chains, Don'ts, a change simulation per volatility axis, the domain model, staleness |
 
 `--thorough` verifies each finding with three independent skeptics instead of one.
-`--out=<folder>` writes the report somewhere other than `.claude/docs/reviews/`.
+`--out=<folder>` writes the report somewhere other than `cc-docs/reviews/`.
+
+A workflow's agents read their plugins' reference files, which Claude Code installs under `~/.claude/plugins/`, and write the report.
+They run in the background, so they cannot ask you to approve a read or a write, and Claude Code refuses it unless a permission already covers it.
+Allow both with one of:
+
+- auto mode;
+- two allow rules in your user settings, `~/.claude/settings.json`, which work in every mode and from any folder:
+
+  ```json
+  { "permissions": { "allow": ["Read(~/.claude/plugins/**)", "Edit(//**/cc-docs/**)"] } }
+  ```
+
+acceptEdits mode is not enough on its own: it allows writes only in the folder Claude Code started in, and no reads outside it.
+With `--out`, allow writes to that folder instead.
+A workflow makes one small read and one small write before any reviewer runs, and stops with these options when either is refused, so no review work is lost.
+The documents stay out of `.claude/`, because Claude Code refuses every write there from a background agent, whatever the permissions.
+Earlier versions kept them in `.claude/docs/`: move them with `git mv .claude/docs cc-docs`.
 
 Workflows need the Workflow tool; where your plan has it off by default, add `"enableWorkflows": true` to your settings.
 Without it, the routers run the same agents directly, without the verification pass.
@@ -83,7 +100,7 @@ In `claude -p` (scripts, CI), allow the `Workflow` tool and set `CLAUDE_CODE_PRI
 
 ## How It Works
 
-Each phase writes a numbered file to `.claude/docs/design/<topic>/` in your project, and later phases read the earlier files:
+Each phase writes a numbered file to `cc-docs/design/<topic>/` in your project, and later phases read the earlier files:
 
 ```
 01-domain-discovery.md       Phase 1: Understand the domain (DMF)
@@ -98,12 +115,12 @@ Each phase writes a numbered file to `.claude/docs/design/<topic>/` in your proj
 
 Every phase checkpoints with you before moving on.
 Run only the phases you need; the orchestrators detect which files exist, start at the right phase, and flag files that are stale because an input changed after them.
-Reviews from `arch-reviewer`, `arch-audit` and `design-check` go to `.claude/docs/reviews/`, in the shape defined by `references/review-findings.md`.
+Reviews from `arch-reviewer`, `arch-audit` and `design-check` go to `cc-docs/reviews/`, in the shape defined by `references/review-findings.md`.
 `references/artifact-pipeline.md` is the authoritative map of which file feeds which; `references/design-directory.md` defines the directory, the numbering shared with `dmf`, and staleness.
 
 ## Project Profile
 
-Describe how your codebase maps the methods in `.claude/docs/architecture.md`: folders per layer, naming, messaging API, composition root, functional library, approved deviations, and known debt.
+Describe how your codebase maps the methods in `cc-docs/architecture.md`: folders per layer, naming, messaging API, composition root, functional library, approved deviations, and known debt.
 Every skill, agent and workflow in both plugins, and in `devflow`, reads it first.
 It replaces generic platform defaults, never the methodology rules, and a violation counts as accepted only when it is listed as an approved deviation.
 The fitness tests use the same Approved deviations and Known debt as their baseline, so the profile and CI never disagree.
@@ -126,14 +143,16 @@ lowy/
 ├── references/      Layers and Don'ts, call chains, the 8-file pipeline, plus the contracts shared
 │                    with dmf: project profile, review findings, design directory
 ├── skills/          One folder per skill, with its own references, output templates and code templates
-└── tests/fitness/   Regression tests for the fitness-test analyzer, against a fixture assembly
+└── tests/           fitness/: regression tests for the fitness-test analyzer, against a fixture assembly;
+                     workflows.test.mjs: control-flow tests for the workflows, with stub agents
 ```
 
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
-Run `claude plugin validate plugins/lowy` before pushing.
+Run `node plugins/lowy/tests/workflows.test.mjs` after changing a workflow, and `claude plugin validate plugins/lowy` before pushing.
+Keep the workflow scripts LF-only and plain JavaScript: the Workflow tool rejects carriage returns and TypeScript syntax.
 After changing anything under `skills/fitness-tests/templates/`, run `dotnet test plugins/lowy/tests/fitness` (needs the .NET 8 SDK or later); the core project compiles the templates under Unity's constraints (.NET Standard 2.1, C# 9).
 A new analyzer rule needs a case in `tests/fitness/Fixture/Shop.cs` and its expected violation in `AnalyzerTests.cs`.
 

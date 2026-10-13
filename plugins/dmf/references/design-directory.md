@@ -5,9 +5,9 @@ It defines where numbered design files live, how they are numbered, and when the
 
 ## Location
 
-All numbered files for one design effort live in `.claude/docs/design/<topic>/` at the project root.
+All numbered files for one design effort live in `cc-docs/design/<topic>/` at the project root.
 `<topic>` is the kebab-case name of the system or feature being designed (for example `video-sdk`).
-Before starting any phase, list `.claude/docs/design/` and reuse the folder whose topic matches; create a new folder only for a new design effort.
+Before starting any phase, list `cc-docs/design/` and reuse the folder whose topic matches; create a new folder only for a new design effort.
 Never write numbered files to the working directory root.
 
 Before any phase, also read the project profile if it exists (see `project-profile.md` in this folder).

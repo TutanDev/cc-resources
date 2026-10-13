@@ -1,7 +1,7 @@
 # Service Wiring - Output Template
 
 When completing the wiring phase, produce a markdown file following this template.
-Save the file as `07-service-wiring.md` in the design directory `.claude/docs/design/<topic>/`.
+Save the file as `07-service-wiring.md` in the design directory `cc-docs/design/<topic>/`.
 
 This file is consumed by Phase 8 (`dmf:serialization-persistence`) and by
 implementation teams. It defines all inter-service communication patterns.

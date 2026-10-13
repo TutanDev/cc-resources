@@ -316,7 +316,7 @@ Before implementing, verify:
 
 ## Output Format
 
-Save the output as **`04-domain-model.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
+Save the output as **`04-domain-model.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
 **Input files:** `01-domain-discovery.md` §6-8 (workflows, data structures, ubiquitous language).

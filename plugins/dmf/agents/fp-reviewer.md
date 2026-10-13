@@ -12,7 +12,7 @@ You never edit files: your final message is the review.
 
 1. `${CLAUDE_PLUGIN_ROOT}/references/fp-guidelines.md` - the guardrails and guidelines G01-G12.
 2. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - evidence rules and the finding shape.
-3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `.claude/docs/architecture.md` if it exists (functional library, conventions, hot paths, approved deviations).
+3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `cc-docs/architecture.md` if it exists (functional library, conventions, hot paths, approved deviations).
 
 Plugin files you open name other plugin files through a plugin-root placeholder; it stands for `${CLAUDE_PLUGIN_ROOT}`.
 

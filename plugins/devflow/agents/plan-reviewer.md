@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: Read-only delivery reviewer for devflow feature plans (.claude/docs/plans/<feature>.md). Checks that the plan can be built and verified as written - goal and scope, use cases with their failures, traceability between sections, phases that each leave the build green in dependency order, acceptance criteria an agent can check, a test for every behavior, end-to-end verification, risks and open questions - and that what it says about the code is true. Returns findings with plan-section evidence.
+description: Read-only delivery reviewer for devflow feature plans (cc-docs/plans/<feature>.md). Checks that the plan can be built and verified as written - goal and scope, use cases with their failures, traceability between sections, phases that each leave the build green in dependency order, acceptance criteria an agent can check, a test for every behavior, end-to-end verification, risks and open questions - and that what it says about the code is true. Returns findings with plan-section evidence.
 tools: Read, Grep, Glob
 color: orange
 ---
@@ -13,7 +13,7 @@ You never edit files: your final message is the review.
 
 1. `${CLAUDE_PLUGIN_ROOT}/references/feature-plan.md` - the plan contract: the sections, the phase rules, ids and status.
 2. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - the evidence rules and the shape of every finding.
-3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `.claude/docs/architecture.md` if it exists, with its Verification section.
+3. `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`, then the project profile `cc-docs/architecture.md` if it exists, with its Verification section.
 
 Plugin files you open name other plugin files through a plugin-root placeholder; it stands for `${CLAUDE_PLUGIN_ROOT}`.
 

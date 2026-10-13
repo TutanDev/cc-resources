@@ -13,7 +13,7 @@ You never edit files: your final message is the result.
 1. `${CLAUDE_PLUGIN_ROOT}/references/composition.md` - core use cases, call chain validation, notation.
 2. `${CLAUDE_PLUGIN_ROOT}/references/structure.md` - layers, closed architecture, relaxed rules, Design Don'ts.
 3. `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md` - evidence rules and the finding shape.
-4. The project profile `.claude/docs/architecture.md`, if it exists, applied as in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+4. The project profile `cc-docs/architecture.md`, if it exists, applied as in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 Plugin files you open name other plugin files through a plugin-root placeholder; it stands for `${CLAUDE_PLUGIN_ROOT}`.
 

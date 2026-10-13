@@ -7,7 +7,7 @@ The three plugins keep identical copies of this contract.
 ## Evidence
 
 - A finding about code cites `file:line` and quotes the lines, read from the file in this session.
-- A finding about a design or a feature plan cites the file and section (`04-domain-model.md §2`, `03-layered-architecture.md §4`, `.claude/docs/plans/discount-codes.md §4.1`).
+- A finding about a design or a feature plan cites the file and section (`04-domain-model.md §2`, `03-layered-architecture.md §4`, `cc-docs/plans/discount-codes.md §4.1`).
 - Documentation, comments and commit messages are claims to verify, not evidence.
 - If a rule cannot be checked statically (runtime wiring, reflection, scene references), list it under "Not checked" instead of guessing.
 

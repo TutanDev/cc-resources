@@ -54,7 +54,7 @@ namespace Architecture.Fitness
             var unexplained = Baseline.Unexplained(_report.Violations, ArchitectureProfile.ApprovedDeviations, ArchitectureProfile.KnownDebt);
             Assert.That(unexplained, Is.Empty, Describe(
                 "Architecture violations that the project profile does not list.\n" +
-                "Fix them, or propose an Approved deviations entry in .claude/docs/architecture.md and mirror it in ArchitectureProfile.cs:",
+                "Fix them, or propose an Approved deviations entry in cc-docs/architecture.md and mirror it in ArchitectureProfile.cs:",
                 unexplained.Select(v => v.ToString())));
         }
 

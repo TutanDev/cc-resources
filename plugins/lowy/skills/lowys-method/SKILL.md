@@ -33,11 +33,11 @@ Determine the user's intent, then invoke the matching skill:
 | Producing call chain diagrams, sequence diagrams, or swim lane diagrams | `lowy:generate-diagram` | (visual output) | User needs visual representation of call chains or architecture |
 | Deciding how services communicate (direct, queued, Pub/Sub, Message Bus) | `lowy:wire-services` | `07-service-wiring.md` | User needs to choose communication patterns between services |
 
-Each phase skill produces a numbered file in the design directory `.claude/docs/design/<topic>/`.
+Each phase skill produces a numbered file in the design directory `cc-docs/design/<topic>/`.
 Downstream phases consume upstream files. Verify the required input files exist before invoking a phase.
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for the design directory, the authoritative inputs of each phase, and staleness rules.
 
-**Project profile:** If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+**Project profile:** If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 ## Multi-Phase Workflows
 
@@ -49,6 +49,8 @@ Some requests span multiple phases. Composite skills and workflows handle the co
 - **`/lowy:arch-audit`** (workflow) - Audit code with several lenses in parallel (Löwy, call chains, DMF, functional style), verify each finding adversarially, and write one ranked report.
 - **`lowy:fitness-tests`** - Turn the mechanical rules into EditMode tests that fail on new violations, with the profile's deviations and debt as the baseline.
 
+A workflow runs in the background: the Workflow tool returns as soon as it starts, and its result arrives later as a task notification.
+Until that notification arrives, tell the user only that it is running, and never describe a result you have not received.
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
 Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents (`lowy:lowy-reviewer`, `lowy:call-chain-validator`, `dmf:dmf-reviewer`, `dmf:fp-reviewer`) in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `lowy:call-chain-validator` per core use case, plus `lowy:lowy-reviewer` on `03` and `dmf:dmf-reviewer` on `04`.
 

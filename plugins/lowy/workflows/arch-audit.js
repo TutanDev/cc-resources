@@ -6,12 +6,16 @@ export const meta = {
     { title: 'Discover', detail: 'project profile, subsystems under the target' },
     { title: 'Review', detail: 'one reviewer per subsystem and lens' },
     { title: 'Verify', detail: 'skeptics try to refute each finding against the code' },
-    { title: 'Report', detail: 'merge, rank and write .claude/docs/reviews/' },
+    { title: 'Report', detail: 'merge, rank and write cc-docs/reviews/' },
   ],
 }
 
 // Keep this file LF-only: the Workflow tool rejects scripts that contain carriage returns.
 // The repository .gitattributes checks it out with LF on every platform.
+
+// Workflow agents run in the background and cannot ask for approval, so a read outside the session's folder, such as
+// the reviewers' reads of their plugins' reference files, and a write no permission covers are refused.
+// One small read and one small write run before any reviewer: a refused one stops the run before their work is spent.
 
 // ---------- input ----------
 // A slash command passes one string: "<target> [--flag] [--name=value]". A JSON object or a structured call passes the object.
@@ -74,11 +78,11 @@ const FINDING = {
 }
 const DISCOVERY = {
   type: 'object',
-  required: ['repoRoot', 'targetName', 'profilePath', 'today', 'revision', 'subsystems', 'skipped'],
+  required: ['repoRoot', 'targetName', 'profilePath', 'today', 'revision', 'subsystems', 'skipped', 'legacyDocs'],
   properties: {
     repoRoot: { type: 'string' },
     targetName: { type: 'string', description: 'kebab-case name of the target, for the report file name' },
-    profilePath: { type: 'string', description: 'path of .claude/docs/architecture.md, or empty if none' },
+    profilePath: { type: 'string', description: 'path of cc-docs/architecture.md, or empty if none' },
     today: { type: 'string', description: 'YYYY-MM-DD' },
     revision: { type: 'string', description: 'git short SHA and branch, or empty' },
     subsystems: {
@@ -90,6 +94,7 @@ const DISCOVERY = {
       },
     },
     skipped: STRINGS,
+    legacyDocs: { type: 'boolean', description: 'whether .claude/docs/architecture.md or .claude/docs/design/ exists under the repository root while cc-docs/ does not' },
   },
 }
 const REVIEW = {
@@ -123,16 +128,42 @@ const VERDICTS = {
     },
   },
 }
+const READABLE = {
+  type: 'object',
+  required: ['read', 'path', 'error'],
+  properties: {
+    read: { type: 'boolean', description: 'whether the Read succeeded' },
+    path: { type: 'string', description: 'the file you read, as you passed it to Read' },
+    error: { type: 'string', description: 'why the Read was refused, word for word; empty when read' },
+  },
+}
+const WRITTEN = {
+  type: 'object',
+  required: ['written', 'error'],
+  properties: {
+    written: { type: 'boolean', description: 'whether the Write succeeded' },
+    error: { type: 'string', description: 'why the Write was refused, word for word; empty when written' },
+  },
+}
 const REPORT = {
   type: 'object',
-  required: ['path', 'summary'],
+  required: ['written', 'error', 'summary'],
   properties: {
-    path: { type: 'string' },
+    ...WRITTEN.properties,
     summary: { type: 'string', description: 'Markdown, at most 25 lines: counts and the top actions' },
   },
 }
 
 // ---------- helpers ----------
+// Shortens text for the result at a word boundary, without a final period: the result's own sentence ends it.
+const clip = (text, max) => {
+  const t = String(text || '').trim().replace(/\.+$/, '')
+  if (t.length <= max) return t
+  const cut = t.slice(0, max - 3)
+  const space = cut.search(/\s\S*$/)
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:(-]+$/, '')}...`
+}
+
 function chunk(list, size) {
   const out = []
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
@@ -179,7 +210,7 @@ const disc = await agent(
 Read only; do not modify anything.
 
 1. repoRoot: the repository root (\`git rev-parse --show-toplevel\`, or the current directory).
-2. profilePath: \`.claude/docs/architecture.md\` under the repository root if it exists, else empty.
+2. profilePath: \`cc-docs/architecture.md\` under the repository root if it exists, else empty.
 3. today: ${input.date ? `use ${input.date}` : 'today\'s date as YYYY-MM-DD (run `date +%F`, or `Get-Date -Format yyyy-MM-dd` in PowerShell)'}.
 4. revision: \`git rev-parse --short HEAD\` and the branch name, or empty.
 5. subsystems: the independent subsystems under the target.
@@ -188,9 +219,13 @@ Read only; do not modify anything.
    If the target is itself one subsystem, or holds fewer than two, return the target as the only subsystem.
    Give each a short name and say why you picked it (\`why\`).
    Skip generated, third-party and test folders (Library, PackageCache, Plugins from vendors, Samples, Tests) and list what you skipped in \`skipped\`.
-6. targetName: a kebab-case name for the target (the subsystem or folder name).`,
+6. targetName: a kebab-case name for the target (the subsystem or folder name).
+7. legacyDocs: whether \`.claude/docs/architecture.md\` or \`.claude/docs/design/\` exists under the repository root (documents from an earlier version of these plugins) while \`cc-docs/\` does not.`,
   { schema: DISCOVERY, label: 'discover' },
 )
+if (disc && disc.legacyDocs) {
+  return 'arch-audit: the project profile and design documents are still in `.claude/docs/`, where they were kept before, and workflow agents cannot write there. Move them with `git mv .claude/docs cc-docs`, then run the audit again.'
+}
 if (!disc || disc.subsystems.length === 0) {
   return 'arch-audit: no subsystem found under the target; nothing to review.'
 }
@@ -201,6 +236,42 @@ if (subsystems.length > maxSubsystems) {
   subsystems = subsystems.slice(0, maxSubsystems)
 }
 log(`Auditing ${subsystems.map(s => s.name).join(', ')} with lenses ${lenses.join(', ')}; ${votes}-vote verification. Profile: ${disc.profilePath || 'none'}.`)
+
+// Reports go to cc-docs/reviews/ unless --out names another folder, absolute or relative to the repository root.
+const reportDir = String(input.out || 'cc-docs/reviews').replace(/[\\/]+$/, '')
+const resolvePath = file => (/^([A-Za-z]:)?[\\/]/.test(reportDir) ? file : `${disc.repoRoot}/${file}`)
+const reportFile = `${reportDir}/${disc.targetName}-arch-audit-${today}.md`
+const reportPath = resolvePath(reportFile)
+const [read, write] = await parallel([
+  () => agent(
+    `This is an access check, not a review: do only this.
+Read the first reference file your instructions list, from your plugin's folder, with one Read call.
+Return whether the Read worked, the path you read, and the refusal word for word if it was refused. If the Read is refused, do not try another way.`,
+    { agentType: 'lowy:lowy-reviewer', schema: READABLE, label: 'read check', phase: 'Discover' },
+  ),
+  () => agent(
+    `Create the file \`${reportPath}\` with one Write call, with exactly the text between the markers, without the markers.
+It marks an audit in progress, and the audit's report replaces it.
+Do nothing else. If the Write is refused, do not try another way: return written false, with the refusal word for word.
+<<<TEXT
+# Architecture Audit: ${disc.targetName}
+
+This audit has not finished.
+Its report replaces this text, so if this text is still here, the run stopped before the report.
+TEXT>>>`,
+    { schema: WRITTEN, label: 'write check', phase: 'Discover' },
+  ),
+])
+if (!read || !write) return 'arch-audit: the access check failed, so nothing was reviewed. Run the audit again.'
+const refused = [
+  ...(read.read ? [] : [`a read of \`${read.path}\`${read.error ? ` (${clip(read.error, 300)})` : ''}`]),
+  ...(write.written ? [] : [`the write to \`${reportPath}\`${write.error ? ` (${clip(write.error, 300)})` : ''}`]),
+]
+if (refused.length) {
+  return `arch-audit stopped before reviewing: Claude Code refused ${refused.join(', and ')}.
+Workflow agents run in the background and cannot ask for your approval, so allow the workflow's reads and writes in advance: use auto mode, or add the rules \`Read(~/.claude/plugins/**)\` (the agents read their plugins' reference files) and \`Edit(//**/cc-docs/**)\` (they write the report; with --out, a rule for that folder instead) to \`permissions.allow\` in \`~/.claude/settings.json\`.
+Then run the audit again.`
+}
 
 // ---------- Review + Verify (no barrier between them) ----------
 const work = subsystems.flatMap(s => lenses.map(lens => ({ s, lens })))
@@ -255,13 +326,10 @@ const refuted = all.filter(f => f.verification === 'refuted')
 log(`${all.length} findings: ${kept.length} kept (${kept.filter(f => f.verification === 'unverified').length} unverified), ${refuted.length} refuted.`)
 
 phase('Report')
-// Reports go to .claude/docs/reviews/ unless --out names another folder, absolute or relative to the repository root.
-const reportDir = String(input.out || '.claude/docs/reviews').replace(/[\\/]+$/, '')
-const resolvePath = file => (/^([A-Za-z]:)?[\\/]/.test(reportDir) ? file : `${disc.repoRoot}/${file}`)
-const reportPath = resolvePath(`${reportDir}/${disc.targetName}-arch-audit-${today}.md`)
 const report = await agent(
-  `Write the architecture audit report to \`${reportPath}\` (create the folder if needed), then return its path and a short summary.
-Do not modify any other file.
+  `Write the architecture audit report to \`${reportPath}\` with one Write call: it replaces the placeholder there. Then return a short summary.
+Modify no other file. If the Write is refused, do not try another way: return written false, with the refusal word for word.
+Write the Markdown with one full sentence per line, and no em dash.
 
 Context: target \`${target}\`, revision ${disc.revision || 'unknown'}, date ${today}, profile ${disc.profilePath || 'none'}, lenses ${lenses.join(', ')}, ${votes}-vote adversarial verification.
 Skipped folders: ${disc.skipped.join(', ') || 'none'}.
@@ -293,6 +361,6 @@ ${JSON.stringify(refuted.map(f => ({ id: f.id, rule: f.rule, file: f.file, lines
   { schema: REPORT, label: 'report' },
 )
 
-return report
-  ? `${report.summary}\n\nReport: ${report.path}`
-  : `arch-audit: the report agent failed. ${kept.length} findings were kept and ${refuted.length} refuted; relaunch to retry the report from cached results.`
+if (!report) return `arch-audit: the report agent failed. ${kept.length} findings were kept and ${refuted.length} refuted; relaunch to retry the report from cached results.`
+if (!report.written) return `arch-audit: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${kept.length} findings were kept and ${refuted.length} refuted.`
+return `${report.summary.trim()}\n\nReport: \`${reportFile}\``

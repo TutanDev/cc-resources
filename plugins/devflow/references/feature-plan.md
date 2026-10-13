@@ -1,7 +1,7 @@
 # Feature Plan Contract
 
 A feature plan says how one feature will be added to an existing system: what it does, where it lives in the architecture, what types it adds, and the phases that build it.
-The `devflow:plan-writer` agent writes it, the `/devflow:review-plan` workflow reviews and revises it, the user approves it, and an implementation workflow executes it one phase at a time.
+The `devflow:plan-writer` agent writes it, the `/devflow:review-plan` workflow reviews it, the writer applies the review's rulings, the user approves it, and an implementation workflow executes it one phase at a time.
 Every agent in the `devflow` plugin reads this contract before writing, reviewing or judging a plan.
 
 A plan is for a change to a system that exists.
@@ -9,9 +9,10 @@ A new system or a new subsystem needs the 8-phase design pipeline first (`lowy:a
 
 ## Location
 
-One file per feature: `.claude/docs/plans/<feature>.md` at the repository root, where `<feature>` is a kebab-case name (for example `discount-codes`).
-Before writing a plan, list `.claude/docs/plans/` and reuse the file whose feature matches.
-Reviews of a plan go to `.claude/docs/reviews/<feature>-plan-review-<YYYY-MM-DD>.md`, next to the other reviews.
+One file per feature: `cc-docs/plans/<feature>.md` at the repository root, where `<feature>` is a kebab-case name (for example `discount-codes`).
+Only the `devflow:plan-writer` agent writes a plan, also when the review workflow runs it.
+Before writing a plan, list `cc-docs/plans/` and reuse the file whose feature matches.
+Each review round of a plan has its own report, `cc-docs/reviews/<feature>-plan-review-<YYYY-MM-DD>-round-<n>.md`, next to the other reviews.
 
 Before writing or reviewing a plan, read the project profile if it exists (see `project-profile.md` in this folder).
 
@@ -32,7 +33,7 @@ Before writing or reviewing a plan, read the project profile if it exists (see `
 | Status | Set by | Meaning |
 |---|---|---|
 | `draft` | `devflow:plan-writer` | Written, not reviewed yet |
-| `reviewed` | `/devflow:review-plan` | Reviewed and revised; it may still hold open questions |
+| `reviewed` | `devflow:plan-writer`, applying a review round | Reviewed and revised; it may still hold open questions |
 | `approved` | The user, and only the user | Ready to implement: no open question, approval recorded in §9 |
 | `in-progress` | The implementation workflow | At least one phase is done |
 | `done` | The implementation workflow | Every phase is done and §7 passed |
@@ -112,7 +113,7 @@ Append-only: entries are added, never edited or removed.
 Each review round adds one table:
 
 ```
-#### Round <n>, <YYYY-MM-DD> (review-plan)
+#### Round <n>, <YYYY-MM-DD> (<report file name>)
 
 | Finding | Lens | Severity | Ruling | Reason | Applied in |
 |---|---|---|---|---|---|
@@ -122,6 +123,7 @@ Each review round adds one table:
 ```
 
 A round with no finding left after verification adds the line "No findings survived verification."
+Rounds are numbered over the plan's whole life: a later review continues from the last round in §9.
 User decisions are entries too: `Q-3 answered, <YYYY-MM-DD>: <answer>. Applied in <sections>.` and `Approved by the user, <YYYY-MM-DD>.`
 
 ## Phases

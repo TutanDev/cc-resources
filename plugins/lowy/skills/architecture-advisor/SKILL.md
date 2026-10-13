@@ -50,9 +50,9 @@ Phase 8: BRIDGE              ← DMF (serialization, persistence, DTOs)
 ### Phase Details, Routing, and Artifacts
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for the design directory, the full file dependency graph, and staleness rules.
-**Project profile:** If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+**Project profile:** If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
-Each phase produces a numbered markdown file in `.claude/docs/design/<topic>/`. The numbering enforces sequence - each phase's output explicitly references which previous files it consumes.
+Each phase produces a numbered markdown file in `cc-docs/design/<topic>/`. The numbering enforces sequence - each phase's output explicitly references which previous files it consumes.
 
 | Phase | Methodology | Skill | Output File | Consumes |
 |---|---|---|---|---|
@@ -89,7 +89,7 @@ After each phase:
 
 When the user arrives, determine their current phase by asking:
 
-**What artifact files exist already?** Look in `.claude/docs/design/*/`, and list stale files first (see Staleness in `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md`).
+**What artifact files exist already?** Look in `cc-docs/design/*/`, and list stale files first (see Staleness in `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md`).
 
 | User has... | Start at phase... |
 |---|---|
@@ -123,6 +123,8 @@ Not every project needs all 8 phases. Common partial paths:
 - **"Plan this feature"** (one feature of a system that exists): route to `devflow:plan-feature` when the `devflow` plugin is installed; it writes a phased plan and reviews it with these same lenses.
   Without it, run Phase 4 for the feature's types and Phase 5 for its use cases.
 
+A workflow runs in the background: the Workflow tool returns as soon as it starts, and its result arrives later as a task notification.
+Until that notification arrives, tell the user only that it is running, and never describe a result you have not received.
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
 Without it, say so once and run the same agents yourself: for an audit, the four reviewer agents (`lowy:lowy-reviewer`, `lowy:call-chain-validator`, `dmf:dmf-reviewer`, `dmf:fp-reviewer`) in parallel on the target, merged as in `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`; for a design check, one `lowy:call-chain-validator` per core use case, plus `lowy:lowy-reviewer` on `03` and `dmf:dmf-reviewer` on `04`.
 

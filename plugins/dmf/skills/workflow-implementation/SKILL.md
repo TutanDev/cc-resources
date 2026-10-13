@@ -401,7 +401,7 @@ No mocking libraries needed. Just define lambdas.
 
 ## Output Format
 
-Save the output as **`06-workflow-pipelines.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
+Save the output as **`06-workflow-pipelines.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
 **Input files:** `04-domain-model.md` (domain types + workflow type signatures) + `05-call-chains.md` §7 if it exists (workflow-to-service mapping from the `lowy` plugin, showing which service chain implements each workflow).

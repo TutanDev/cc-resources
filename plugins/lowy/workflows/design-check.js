@@ -6,12 +6,16 @@ export const meta = {
     { title: 'Load', detail: 'design files, staleness, use cases, volatilities' },
     { title: 'Check', detail: 'call chains, structure, change simulation, domain model' },
     { title: 'Verify', detail: 'skeptics try to refute critical and major findings' },
-    { title: 'Report', detail: 'write .claude/docs/reviews/' },
+    { title: 'Report', detail: 'write cc-docs/reviews/' },
   ],
 }
 
 // Keep this file LF-only: the Workflow tool rejects scripts that contain carriage returns.
 // The repository .gitattributes checks it out with LF on every platform.
+
+// Workflow agents run in the background and cannot ask for approval, so a read outside the session's folder, such as
+// the reviewers' reads of their plugins' reference files, and a write no permission covers are refused.
+// One small read and one small write run before any check: a refused one stops the run before their work is spent.
 
 // ---------- input ----------
 // A slash command passes one string: "<topic> [--flag] [--name=value]". A JSON object or a structured call passes the object.
@@ -72,7 +76,7 @@ const FINDING = {
 }
 const LOAD = {
   type: 'object',
-  required: ['repoRoot', 'designDir', 'topic', 'today', 'profilePath', 'files', 'stale', 'useCases', 'volatilities', 'note'],
+  required: ['repoRoot', 'designDir', 'topic', 'today', 'profilePath', 'files', 'stale', 'useCases', 'volatilities', 'legacyDocs', 'note'],
   properties: {
     repoRoot: { type: 'string' },
     designDir: { type: 'string', description: 'empty if no design directory with 03-layered-architecture.md was found' },
@@ -92,6 +96,7 @@ const LOAD = {
       type: 'array',
       items: { type: 'object', required: ['axis', 'encapsulatedBy', 'source'], properties: { axis: { type: 'string' }, encapsulatedBy: { type: 'string' }, source: { type: 'string' } } },
     },
+    legacyDocs: { type: 'boolean', description: 'whether .claude/docs/architecture.md or .claude/docs/design/ exists under the repository root while cc-docs/ does not' },
     note: { type: 'string' },
   },
 }
@@ -110,10 +115,39 @@ const VERDICT = {
     reason: { type: 'string' },
   },
 }
+const READABLE = {
+  type: 'object',
+  required: ['read', 'path', 'error'],
+  properties: {
+    read: { type: 'boolean', description: 'whether the Read succeeded' },
+    path: { type: 'string', description: 'the file you read, as you passed it to Read' },
+    error: { type: 'string', description: 'why the Read was refused, word for word; empty when read' },
+  },
+}
+const WRITTEN = {
+  type: 'object',
+  required: ['written', 'error'],
+  properties: {
+    written: { type: 'boolean', description: 'whether the Write succeeded' },
+    error: { type: 'string', description: 'why the Write was refused, word for word; empty when written' },
+  },
+}
 const REPORT = {
   type: 'object',
-  required: ['path', 'summary'],
-  properties: { path: { type: 'string' }, summary: { type: 'string', description: 'Markdown, at most 25 lines' } },
+  required: ['written', 'error', 'summary'],
+  properties: {
+    ...WRITTEN.properties,
+    summary: { type: 'string', description: 'Markdown, at most 25 lines' },
+  },
+}
+
+// Shortens text for the result at a word boundary, without a final period: the result's own sentence ends it.
+const clip = (text, max) => {
+  const t = String(text || '').trim().replace(/\.+$/, '')
+  if (t.length <= max) return t
+  const cut = t.slice(0, max - 3)
+  const space = cut.search(/\s\S*$/)
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:(-]+$/, '')}...`
 }
 
 // ---------- Load ----------
@@ -123,18 +157,22 @@ const d = await agent(
 
 1. repoRoot: the repository root (\`git rev-parse --show-toplevel\`, or the current directory).
 2. designDir: ${topic
-    ? `the design directory for "${topic}": the path itself if it is a directory, else \`.claude/docs/design/${topic}/\`, else the closest match under \`.claude/docs/design/\`.`
-    : 'the only directory under `.claude/docs/design/`, or the most recently modified one; say which and why in `note`.'}
+    ? `the design directory for "${topic}": the path itself if it is a directory, else \`cc-docs/design/${topic}/\`, else the closest match under \`cc-docs/design/\`.`
+    : 'the only directory under `cc-docs/design/`, or the most recently modified one; say which and why in `note`.'}
    It must contain \`03-layered-architecture.md\`; if none does, return designDir empty and explain in \`note\`.
 3. topic: the directory name. today: ${input.date ? input.date : 'today as YYYY-MM-DD (`date +%F`, or `Get-Date -Format yyyy-MM-dd`)'}.
-4. profilePath: \`.claude/docs/architecture.md\` under the repository root if it exists, else empty.
+4. profilePath: \`cc-docs/architecture.md\` under the repository root if it exists, else empty.
 5. files: the numbered design files present.
 6. stale: compare modification times (\`ls -l --time-style=full-iso\` or \`Get-Item\`); a file is stale when any of its inputs is newer.
    Inputs per file: ${JSON.stringify(INPUTS)}.
 7. useCases: the core use cases from \`02-volatilities.md\` §2 (or, if missing, from \`05-call-chains.md\` §1 or \`01-domain-discovery.md\` workflows); cite the source section.
-8. volatilities: the axes of volatility from \`02-volatilities.md\` §3, each with the service that encapsulates it per \`03-layered-architecture.md\` §2 (empty string if none does); cite the source.`,
+8. volatilities: the axes of volatility from \`02-volatilities.md\` §3, each with the service that encapsulates it per \`03-layered-architecture.md\` §2 (empty string if none does); cite the source.
+9. legacyDocs: whether \`.claude/docs/architecture.md\` or \`.claude/docs/design/\` exists under the repository root (documents from an earlier version of these plugins) while \`cc-docs/\` does not.`,
   { schema: LOAD, label: 'load' },
 )
+if (d && d.legacyDocs) {
+  return 'design-check: the design documents are still in `.claude/docs/`, where they were kept before, and workflow agents cannot write there. Move them with `git mv .claude/docs cc-docs`, then run the design check again.'
+}
 if (!d || !d.designDir) {
   return `design-check: ${d ? d.note : 'the load agent failed'}. Run the design phases up to 03-layered-architecture.md first.`
 }
@@ -145,6 +183,42 @@ const profileNote = d.profilePath
   : 'There is no project profile: every finding is a violation.'
 const dir = d.designDir
 log(`Checking ${dir}: ${d.useCases.length} core use cases, ${d.volatilities.length} axes of volatility${has04 ? ', domain model present' : ''}. ${d.stale.length ? `Stale: ${d.stale.map(s => s.file).join(', ')}.` : 'Nothing stale.'}`)
+
+// Reports go to cc-docs/reviews/ unless --out names another folder, absolute or relative to the repository root.
+const reportDir = String(input.out || 'cc-docs/reviews').replace(/[\\/]+$/, '')
+const resolvePath = file => (/^([A-Za-z]:)?[\\/]/.test(reportDir) ? file : `${d.repoRoot}/${file}`)
+const reportFile = `${reportDir}/${d.topic}-design-check-${today}.md`
+const reportPath = resolvePath(reportFile)
+const [read, write] = await parallel([
+  () => agent(
+    `This is an access check, not a review: do only this.
+Read the first reference file your instructions list, from your plugin's folder, with one Read call.
+Return whether the Read worked, the path you read, and the refusal word for word if it was refused. If the Read is refused, do not try another way.`,
+    { agentType: 'lowy:lowy-reviewer', schema: READABLE, label: 'read check', phase: 'Load' },
+  ),
+  () => agent(
+    `Create the file \`${reportPath}\` with one Write call, with exactly the text between the markers, without the markers.
+It marks a design check in progress, and the check's report replaces it.
+Do nothing else. If the Write is refused, do not try another way: return written false, with the refusal word for word.
+<<<TEXT
+# Design Check: ${d.topic}
+
+This design check has not finished.
+Its report replaces this text, so if this text is still here, the run stopped before the report.
+TEXT>>>`,
+    { schema: WRITTEN, label: 'write check', phase: 'Load' },
+  ),
+])
+if (!read || !write) return 'design-check: the access check failed, so nothing was checked. Run the design check again.'
+const refused = [
+  ...(read.read ? [] : [`a read of \`${read.path}\`${read.error ? ` (${clip(read.error, 300)})` : ''}`]),
+  ...(write.written ? [] : [`the write to \`${reportPath}\`${write.error ? ` (${clip(write.error, 300)})` : ''}`]),
+]
+if (refused.length) {
+  return `design-check stopped before checking: Claude Code refused ${refused.join(', and ')}.
+Workflow agents run in the background and cannot ask for your approval, so allow the workflow's reads and writes in advance: use auto mode, or add the rules \`Read(~/.claude/plugins/**)\` (the agents read their plugins' reference files) and \`Edit(//**/cc-docs/**)\` (they write the report; with --out, a rule for that folder instead) to \`permissions.allow\` in \`~/.claude/settings.json\`.
+Then run the design check again.`
+}
 
 // ---------- Check ----------
 const checks = [
@@ -225,13 +299,10 @@ const refuted = all.filter(f => f.verification === 'refuted')
 log(`${all.length} findings: ${kept.length} kept, ${refuted.length} refuted.`)
 
 phase('Report')
-// Reports go to .claude/docs/reviews/ unless --out names another folder, absolute or relative to the repository root.
-const reportDir = String(input.out || '.claude/docs/reviews').replace(/[\\/]+$/, '')
-const resolvePath = file => (/^([A-Za-z]:)?[\\/]/.test(reportDir) ? file : `${d.repoRoot}/${file}`)
-const reportPath = resolvePath(`${reportDir}/${d.topic}-design-check-${today}.md`)
 const report = await agent(
-  `Write the design check report to \`${reportPath}\` (create the folder if needed), then return its path and a short summary.
-Do not modify any other file.
+  `Write the design check report to \`${reportPath}\` with one Write call: it replaces the placeholder there. Then return a short summary.
+Modify no other file. If the Write is refused, do not try another way: return written false, with the refusal word for word.
+Write the Markdown with one full sentence per line, and no em dash.
 
 Context: design \`${dir}\`, date ${today}, profile ${d.profilePath || 'none'}, ${votes}-vote verification of critical and major violations.
 Stale files: ${JSON.stringify(d.stale)}. ${d.note}
@@ -258,6 +329,6 @@ ${JSON.stringify(refuted.map(f => ({ id: f.id, rule: f.rule, file: f.file, reaso
   { schema: REPORT, label: 'report' },
 )
 
-return report
-  ? `${report.summary}\n\nReport: ${report.path}`
-  : `design-check: the report agent failed. ${kept.length} findings kept, ${refuted.length} refuted; relaunch to retry from cached results.`
+if (!report) return `design-check: the report agent failed. ${kept.length} findings kept, ${refuted.length} refuted; relaunch to retry from cached results.`
+if (!report.written) return `design-check: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${kept.length} findings kept, ${refuted.length} refuted.`
+return `${report.summary.trim()}\n\nReport: \`${reportFile}\``

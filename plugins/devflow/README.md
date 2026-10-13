@@ -41,14 +41,16 @@ The review also runs `lowy:lowy-reviewer`, `lowy:call-chain-validator` and `dmf:
 
 | Workflow | Use |
 |---|---|
-| `/devflow:review-plan <feature> [--thorough] [--lenses=lowy,chains,dmf,plan] [--rounds=N]` | Review a plan, verify the findings, judge them, revise the plan, and re-review the changes once |
+| `/devflow:review-plan <feature> [--thorough] [--lenses=lowy,chains,dmf,plan] [--rounds=N]` | Reviews and revises a plan, round by round: blind reviewers, verification, the judge's rulings, the writer applying them, and a report per round |
 
 `--thorough` verifies each critical and major finding with three independent skeptics instead of one.
-`--rounds=N` sets the most review rounds (default 2): a round after the first runs only when the judge accepted a critical or major change, and it reviews only those changes and what they broke.
-`--out=<folder>` writes the report somewhere other than `.claude/docs/reviews/`, and `--date=YYYY-MM-DD` fixes its date.
+`--rounds=N` sets the most rounds in one run (default 2): another round runs only when the judge accepted a critical or major change, and it reviews only those changes and what they broke.
+`--date=YYYY-MM-DD` fixes the reports' date.
+Rounds are numbered over the plan's whole life, so a review after you answer its questions starts at the round after the last one in §9.
 
 Workflows need the Workflow tool; where your plan has it off by default, add `"enableWorkflows": true` to your settings.
 Without it, `plan-feature` runs the same agents directly, without the verification pass.
+The workflow's agents read the plugins' reference files and write the plan and the reports, so allow both first (see [Permissions](#permissions)).
 In `claude -p` (scripts, CI), allow the `Workflow` tool and set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`: workflows run in the background, and a print session otherwise stops them 10 minutes after its last turn.
 
 ## Quick Start
@@ -73,12 +75,15 @@ you ──▶ plan-feature: clarify ──▶ plan-writer: draft
                      skeptics try to refute each critical and major finding
                                         ▼
                      plan-judge: accept, reject, or ask you
-                                        ▼
-                     plan-writer: apply, log the round in §9
+                                        │
+                     ┌──────────────────┴──────────────────┐
+                     ▼                                     ▼
+   plan-writer: apply the rulings, log §9      the round's report
+                     └──────────────────┬──────────────────┘
                                         ▼
                re-review the changes once, if a critical or major change was made
                                         ▼
-                     report ──▶ you: answer the open questions, approve
+                     you: answer the open questions, approve
 ```
 
 The roles are independent by construction:
@@ -89,9 +94,33 @@ The roles are independent by construction:
 - When lenses disagree, Löwy decides where things live (services, layers, call chains), DMF decides what lives inside them (types, signatures, errors), and the delivery lens decides how the work is cut and checked.
 - Only you approve a plan.
 
+## Permissions
+
+Plans and reports live under `cc-docs/` at the repository root, and the review workflow's agents write them: the writer revises the plan, and a report agent writes each round's report.
+The reviewers also read their plugins' reference files, which Claude Code installs under `~/.claude/plugins/`, outside your repository.
+Workflow agents run in the background, so they cannot ask you to approve a read or a write, and Claude Code refuses it unless a permission already covers it.
+Allow both with one of:
+
+- auto mode;
+- two allow rules in your user settings, `~/.claude/settings.json`, which work in every mode and from any folder:
+
+  ```json
+  { "permissions": { "allow": ["Read(~/.claude/plugins/**)", "Edit(//**/cc-docs/**)"] } }
+  ```
+
+acceptEdits mode is not enough on its own: it allows writes only in the folder Claude Code started in, and no reads outside it.
+`~/` is your home folder, so the `Read` rule covers the installed plugins and nothing else.
+`Edit` rules cover every tool that writes files, and the leading `//` makes the pattern match `cc-docs/` wherever it is; without it, the pattern is relative to the folder Claude Code started in.
+A plugin cannot ship these rules: Claude Code ignores permissions in a plugin's settings.
+The workflow makes one small read and one small write before any reviewer runs, and stops with these options when either is refused, so no review work is lost.
+Without them, `plan-feature` still drafts the plan and records your answers, with the writer in the foreground, and Claude Code asks you to approve its reads and writes.
+
+The documents stay out of `.claude/`, because Claude Code refuses every write there from a background agent, whatever the permissions.
+Earlier versions kept them in `.claude/docs/`: move them with `git mv .claude/docs cc-docs`.
+
 ## The Plan
 
-Plans live in `.claude/docs/plans/<feature>.md`, in nine fixed sections:
+Plans live in `cc-docs/plans/<feature>.md`, in nine fixed sections:
 
 ```
 1 Goal                      5 Domain Model Impact (DMF)
@@ -104,14 +133,14 @@ Plans live in `.claude/docs/plans/<feature>.md`, in nine fixed sections:
 Every phase leaves the build green, every acceptance criterion is checkable by an agent, and every ruling and answer is logged in §9.
 A plan goes from `draft` to `reviewed` to `approved` (by you only), then `in-progress` and `done` as it is implemented.
 `references/feature-plan.md` is the contract, and `references/plan-template.md` the skeleton.
-Reviews go to `.claude/docs/reviews/<feature>-plan-review-<date>.md`.
+Each review round's report goes to `cc-docs/reviews/<feature>-plan-review-<date>-round-<n>.md`.
 
 A plan is for a feature of a system that exists.
 For a new system or subsystem, run the 8-phase design pipeline first (`lowy:architecture-advisor`); plans then build on its design directory.
 
 ## Project Profile
 
-Every agent reads `.claude/docs/architecture.md`, as in the `lowy` and `dmf` plugins.
+Every agent reads `cc-docs/architecture.md`, as in the `lowy` and `dmf` plugins.
 Its optional **Verification** section gives the build and test commands and how to run the app; plans copy them into §7.
 See `references/project-profile.md` for the contract.
 
@@ -134,6 +163,7 @@ Bump `version` in `.claude-plugin/plugin.json` with every change you want users 
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/lowy/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `node plugins/devflow/tests/review-plan.test.mjs` after changing `workflows/review-plan.js`, and `claude plugin validate plugins/devflow` before pushing.
 Keep the workflow scripts LF-only and plain JavaScript: the Workflow tool rejects carriage returns and TypeScript syntax.
+To run a workflow from a checkout with `--plugin-dir`, allow reads of that checkout too, or use auto mode: the `Read` rule above covers only the installed plugins.
 
 ## Sources
 

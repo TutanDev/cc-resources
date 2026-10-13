@@ -1,7 +1,7 @@
 # Call Chain Validation - Output Template
 
 When completing the validation phase, produce a markdown file following this template.
-Save the file as `05-call-chains.md` in the design directory `.claude/docs/design/<topic>/`.
+Save the file as `05-call-chains.md` in the design directory `cc-docs/design/<topic>/`.
 
 This file is consumed by Phase 6 (`dmf:workflow-implementation`) and
 Phase 7 (`wire-services`).

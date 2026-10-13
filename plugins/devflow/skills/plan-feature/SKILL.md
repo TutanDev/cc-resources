@@ -1,6 +1,6 @@
 ---
 name: plan-feature
-description: "Entry point for planning a feature of an existing system with Löwy's Method and DMF: clarifies the request with the user, has the devflow:plan-writer agent draft .claude/docs/plans/<feature>.md, runs the /devflow:review-plan workflow (blind Löwy, call-chain, DMF and delivery reviewers, adversarial verification, a judge, a revision), then takes the user's answers and approval. Use when the user wants to plan a feature, write an implementation plan, or continue, review or approve an existing feature plan."
+description: "Entry point for planning a feature of an existing system with Löwy's Method and DMF: clarifies the request with the user, has the devflow:plan-writer agent draft cc-docs/plans/<feature>.md, runs the /devflow:review-plan workflow (blind Löwy, call-chain, DMF and delivery reviewers, adversarial verification, a judge, and the writer applying the rulings, round by round), then takes the user's answers and approval. Use when the user wants to plan a feature, write an implementation plan, or continue, review or approve an existing feature plan."
 argument-hint: <feature request, or the name of an existing plan>
 ---
 
@@ -9,7 +9,7 @@ Part of the `devflow` plugin, which depends on the `lowy` and `dmf` plugins: the
 Plan the following feature: $ARGUMENTS
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/feature-plan.md` first: the plan format, its status, and who may change what.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 The roles stay separate, because independent roles are what make the review worth running:
 
@@ -19,12 +19,15 @@ The roles stay separate, because independent roles are what make the review wort
 - you run the process and talk to the user.
 
 Do not write or edit the plan yourself while the Agent tool is available.
+Run `devflow:plan-writer` in the foreground: Claude Code may ask the user to approve its write, and only a foreground agent can ask.
+When a write is refused, yours or the writer's (it replies `Not written:`), stop and tell the user what was not saved.
 Never mark a plan approved without the user's explicit approval in this conversation.
 When the Agent tool is not available (for example inside a subagent), do each role yourself, in order, following its agent file in `${CLAUDE_PLUGIN_ROOT}/agents/`.
 
 ## Phase 0: Find the Plan
 
-List `.claude/docs/plans/`.
+List `cc-docs/plans/`.
+If `.claude/docs/` exists and `cc-docs/` does not, the documents are from an earlier version of these plugins: offer to move them with `git mv .claude/docs cc-docs` before anything else, because no workflow can write under `.claude/`.
 
 - If the argument names an existing plan, read its `> Status:` line and continue from it: `draft` goes to Phase 3, `reviewed` to Phase 4.
   An `approved` plan is ready; offer a new review (Phase 3) only if the user wants to change it, and say that a change needs their approval again.
@@ -55,30 +58,46 @@ In a non-interactive run, go straight to the review.
 
 ## Phase 3: Review
 
-Run the `devflow:review-plan` workflow with the Workflow tool, passing the feature name as its argument (add `--thorough` when the user asked for a thorough review).
-It reviews the plan with blind Löwy, call-chain, DMF and delivery reviewers, sends every critical and major finding to skeptics who try to refute it, has `devflow:plan-judge` rule on what survives, has `devflow:plan-writer` apply the rulings and log them in §9, re-reviews the changes once when a critical or major change was made, and writes a report to `.claude/docs/reviews/`.
+Run the `devflow:review-plan` workflow with the Workflow tool.
+Pass the feature name, plus `--thorough` when the user asked for a thorough review.
+After answers that changed the plan, pass a JSON object instead, with `plan` and with `focus` set to the answers and the sections they changed.
+The Workflow tool returns as soon as the workflow starts, and its result arrives later as a task notification, often after half an hour or more.
+Until that notification arrives, tell the user only that the review is running: do not read the reports or the plan for an outcome, and never describe a result you have not received.
+
+The workflow runs the rounds itself.
+In each, blind Löwy, call-chain, DMF and delivery reviewers check the plan, skeptics try to refute every critical and major finding, and `devflow:plan-judge` rules on what survives.
+Then `devflow:plan-writer` applies the rulings and logs them in §9, while a report agent writes the round's report to `cc-docs/reviews/`.
+Another round reviews the critical and major changes, up to two rounds per run.
+Its result is short: per round, the counts, the report's path and the plan's revision, then the next steps.
+
+- When it stopped because a read or a write was refused, tell the user how to allow them, as the result says, and stop.
+  Change their permission settings only when they ask you to.
+- When it says changes were not re-reviewed, tell the user.
+- Otherwise go to Phase 4.
 
 Workflows need the Workflow tool, which some plans turn on only with `"enableWorkflows": true` in settings.
 Without it, say so once and run the same roles with the Agent tool, without the verification pass, using the prompts in `${CLAUDE_PLUGIN_ROOT}/workflows/review-plan.js`:
 
 1. In parallel: `lowy:lowy-reviewer`, one `lowy:call-chain-validator` per use case in §3, `dmf:dmf-reviewer` and `devflow:plan-reviewer`.
 2. `devflow:plan-judge` with all their findings.
-3. `devflow:plan-writer` in Revise mode with the rulings, round 1, and the date.
-4. When the judge accepted a critical or major finding, one more round on the changes only.
+3. `devflow:plan-writer` in Revise mode, in the foreground, with the plan path, the round number (one after the last round in §9), the date, the report's file name, and the judge's rulings exactly as the judge gave them, each a heading over a fenced block, as the workflow renders them.
+4. Write the round's report to `cc-docs/reviews/<feature>-plan-review-<date>-round-<n>.md`, in the structure the workflow's report prompt gives.
+5. When the judge accepted a critical or major finding, one more round on the changes only.
 
 ## Phase 4: Answers and Approval
 
-Show the user, from the workflow's result and the report:
+Read the round reports the review wrote, and the plan's §8 and §9.
+Show the user:
 
-- the verdict;
-- the changes made, one line per accepted ruling;
+- the plan's status and revision, and whether it is ready for approval: no open question in §8, and no critical or major change left un-re-reviewed;
+- the changes made, one line per accepted ruling, from §9;
 - what was rejected, and why, one line each;
 - the conflicts between lenses the judge settled;
 - the open questions.
 
 Ask the open questions with their options and the recommendation from §8.
 Send the answers to `devflow:plan-writer` in Answers mode, with the date.
-If an answer changes §3-§6 in substance (a new use case, service, type or phase), offer another review (Phase 3).
+If an answer changes §3-§6 in substance (a new use case, service, type or phase), offer another review (Phase 3), with the answers as its `focus`.
 
 When no open question remains, ask the user to approve the plan.
 Only on their explicit approval, send it to `devflow:plan-writer` in Answers mode as the approval, with the date.

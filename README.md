@@ -72,6 +72,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
 | Function hooks | `house-rules` | An early-access API; the plugin was written and tested on Claude Code 2.1.294 |
 | The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
+| Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json` |
 
 ### Plugins and Marketplaces
 
@@ -95,7 +96,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 
 | Dependency | Needed by | Notes |
 |---|---|---|
-| A C# functional library | `dmf`, `lowy`, `devflow` | Examples use Tutan.Functional (`com.tutan.functional`); name yours in `.claude/docs/architecture.md` and the skills translate to it |
+| A C# functional library | `dmf`, `lowy`, `devflow` | Examples use Tutan.Functional (`com.tutan.functional`); name yours in `cc-docs/architecture.md` and the skills translate to it |
 | Unity Test Framework (`com.unity.test-framework`) | `lowy`'s `fitness-tests` | The generated tests are EditMode NUnit tests |
 | Mono.Cecil (`com.unity.nuget.mono-cecil`) | `lowy`'s `fitness-tests` | The skill asks before adding it; 1.11.6 works with Unity 6.3; outside Unity, the `Mono.Cecil` NuGet package |
 | A Mermaid renderer | `lowy`'s `generate-diagram` and `call-chain-validator` | Optional: diagrams are written as Mermaid text, which GitHub renders |
@@ -107,9 +108,9 @@ Everything a plugin needs beyond this repository, and who needs it.
 | The Claude Code CLI | `claude plugin validate` and `claude plugin test plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/install-statusline.test.sh` |
-| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` |
+| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` and `node plugins/lowy/tests/workflows.test.mjs` |
 | TypeScript (`tsc`) | Optional: type-checking `house-rules` with `tsc -p plugins/house-rules` |
-| GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
+| GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` and `lowy` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
 
 ## Maintaining
 
@@ -118,7 +119,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 - Run `claude plugin validate .` and `claude plugin validate plugins/<name>` before pushing.
 - Run `claude plugin test plugins/house-rules` after changing its hooks.
 - Run `bash plugins/workstation/tests/install-statusline.test.sh` after changing the `workstation` hook; CI runs it on every push.
-- Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow; CI runs it on every push.
+- Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow, and `node plugins/lowy/tests/workflows.test.mjs` after changing a `lowy` one; CI runs both on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.
 - A dependency on a plugin from another marketplace needs that marketplace listed under `allowCrossMarketplaceDependenciesOn` in `.claude-plugin/marketplace.json`.

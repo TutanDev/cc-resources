@@ -1,7 +1,7 @@
 # Layered Architecture - Output Template
 
 When completing the classification phase, produce a markdown file following this template.
-Save the file as `03-layered-architecture.md` in the design directory `.claude/docs/design/<topic>/`.
+Save the file as `03-layered-architecture.md` in the design directory `cc-docs/design/<topic>/`.
 
 This file is consumed by Phase 4 (`dmf:domain-modeling`), Phase 5 (`validate-use-cases`),
 and Phase 7 (`wire-services`).

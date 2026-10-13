@@ -14,7 +14,7 @@ description: >
 # Layer Classification & Structure
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/structure.md` before classifying.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 You are helping the user assign services to the correct architectural layer
 and validate that the resulting structure follows The Method's constraints.
@@ -110,7 +110,7 @@ See `${CLAUDE_PLUGIN_ROOT}/references/structure.md` §9:
 
 **Read** `references/output-template.md` and follow the template exactly.
 
-Save the output as **`03-layered-architecture.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`03-layered-architecture.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
 
 **Input file:** `02-volatilities.md` §5 (candidate services) + §2 (core use cases). Also reference `01-domain-discovery.md` for bounded context mapping.
 If `01-domain-discovery.md` does not exist, write `TBD (no 01)` in the §8 Bounded Context(s) column and say so.

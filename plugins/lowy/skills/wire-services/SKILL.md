@@ -13,7 +13,7 @@ description: >
 # Service Wiring & Message Bus Patterns
 
 **Read** `references/message-bus.md` before advising.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 You are helping the user decide how services in their Löwy-style architecture communicate
 and whether a Message Bus is justified.
@@ -116,7 +116,7 @@ Check every communication path against the permitted/prohibited lists above.
 
 **Read** `references/output-template.md` and follow the template exactly.
 
-Save the output as **`07-service-wiring.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`07-service-wiring.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
 
 **Input files:** `03-layered-architecture.md` (services + layers) + `05-call-chains.md` (validated call patterns) + `04-domain-model.md` (domain types behind each §6 DTO boundary).
 If `04-domain-model.md` does not exist, write `TBD (no 04)` in the Domain Type Source column.

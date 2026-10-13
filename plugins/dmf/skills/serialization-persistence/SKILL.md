@@ -392,7 +392,7 @@ Infrastructure/
 
 ## Output Format
 
-Save the output as **`08-serialization-bridge.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
+Save the output as **`08-serialization-bridge.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for choosing `<topic>`).
 Start the file with a `> Source:` line naming the files it consumed (used for staleness checks).
 
 **Input files:** `04-domain-model.md` (domain types to serialize) + `06-workflow-pipelines.md` (I/O points at pipeline edges) + `07-service-wiring.md` §6 (DTO boundaries between services) and §3 (event catalog with payloads) if it exists (from the `lowy` plugin).

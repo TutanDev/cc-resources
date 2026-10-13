@@ -13,7 +13,7 @@ description: >
 # Architecture Validation via Call Chains
 
 **Read** `${CLAUDE_PLUGIN_ROOT}/references/composition.md` before validating.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 You are helping the user prove that their architecture supports every core use case.
 Validation is done by producing **call chains** - the sequence of service interactions
@@ -67,7 +67,7 @@ For each core use case, simulate a requirement change:
 
 **Read** `references/output-template.md` and follow the template exactly.
 
-Save the output as **`05-call-chains.md`** in the design directory `.claude/docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
+Save the output as **`05-call-chains.md`** in the design directory `cc-docs/design/<topic>/` (see `${CLAUDE_PLUGIN_ROOT}/references/artifact-pipeline.md` for choosing `<topic>`).
 
 **Input files:** `03-layered-architecture.md` (classified services) + `02-volatilities.md` §2 (core use cases) + `01-domain-discovery.md` §6 (workflows, for the §7 workflow-to-service mapping).
 If `01-domain-discovery.md` does not exist, map the use cases to services in §7 instead and say so.

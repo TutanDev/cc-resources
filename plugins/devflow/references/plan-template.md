@@ -1,6 +1,6 @@
 # Plan: <Feature Title>
 
-> Source: <the request in one line>; <design files>; <`.claude/docs/architecture.md` if it exists>
+> Source: <the request in one line>; <design files>; <`cc-docs/architecture.md` if it exists>
 > Status: draft
 > Revision: 1, <YYYY-MM-DD>
 

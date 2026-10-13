@@ -68,8 +68,8 @@ When one is absent, the phase that consumes it applies its fallback and says so 
 - `dmf:workflow-implementation` without `05`: organize by the workflows in `01` §6 (if it exists) and the workflow signatures in `04`, place each workflow in the bounded context that owns it, wire dependencies in the composition root, and state that no call-chain mapping was used.
 - `dmf:serialization-persistence` without `07`: derive boundaries from `01` §2-3 (each cross-context relationship in the context map), every persistence store and external system named in `01`, `04` or `06`, and event payloads from the `01` §4 domain events that cross a context boundary; without `01` either, from the bounded contexts and event types in `04` and the I/O points in `06`.
 
-All numbered files live in `.claude/docs/design/<topic>/`; **read** `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for the location, the fixed file numbering, the `> Source:` line and the staleness rules.
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+All numbered files live in `cc-docs/design/<topic>/`; **read** `${CLAUDE_PLUGIN_ROOT}/references/design-directory.md` for the location, the fixed file numbering, the `> Source:` line and the staleness rules.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 Code defaults to C#: every phase follows `${CLAUDE_PLUGIN_ROOT}/references/csharp-mapping.md`, and writes F# only on request.
 
 **If the user asks for a later phase but a file on its "consumes" line (`01`, `04` or `06`) doesn't exist** (a missing `03`, `05` or `07` uses the fallback above instead):

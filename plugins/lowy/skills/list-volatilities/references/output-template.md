@@ -1,7 +1,7 @@
 # Volatility Decomposition - Output Template
 
 When completing the decomposition phase, produce a markdown file following this template.
-Save the file as `02-volatilities.md` in the design directory `.claude/docs/design/<topic>/`.
+Save the file as `02-volatilities.md` in the design directory `cc-docs/design/<topic>/`.
 
 This file is consumed by Phase 3 (`classify-structure`) and Phase 5 (`validate-use-cases`).
 

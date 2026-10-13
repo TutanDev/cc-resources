@@ -15,7 +15,7 @@ Findings follow `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`.
 When the Agent tool is not available (for example inside a subagent), do each delegated phase yourself with the skill named in its fallback line.
 
 ## Phase 0: Scope
-If `.claude/docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
+If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
 - A path (or nothing, inside a repository): review the code. Docs are claims to verify against it.
 - A description: review it as given, and state that the findings are unverified against code.
@@ -56,6 +56,6 @@ Prioritized list of changes, from most critical to least.
 ### Profile Gaps and Not Checked
 Copy both sections from the agents' results: proposals for the profile (never applied without the user), and what could not be verified.
 
-Save the report as `.claude/docs/reviews/<target>-lowy-review-<YYYY-MM-DD>.md`, where `<target>` is the kebab-case name of the reviewed subsystem or system.
+Save the report as `cc-docs/reviews/<target>-lowy-review-<YYYY-MM-DD>.md`, where `<target>` is the kebab-case name of the reviewed subsystem or system.
 
 If the review found mechanical violations (layer direction, Design Don'ts #2 and #6-#12, naming), offer `/lowy:fitness-tests` so they cannot come back unnoticed.

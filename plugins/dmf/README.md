@@ -52,7 +52,7 @@ Claude delegates to them from the skills, or when you ask for a review.
 
 ## How It Works
 
-Each phase writes a numbered file to `.claude/docs/design/<topic>/` in your project, and later phases read the earlier files:
+Each phase writes a numbered file to `cc-docs/design/<topic>/` in your project, and later phases read the earlier files:
 
 ```
 01-domain-discovery.md       Phase 1: Understand the domain
@@ -71,7 +71,7 @@ Run only the phases you need: the orchestrator routes to the phase you ask for, 
 
 ## Project Profile
 
-Describe how your codebase maps the method in `.claude/docs/architecture.md`: domain folders, functional library, composition root, approved deviations, and known debt.
+Describe how your codebase maps the method in `cc-docs/architecture.md`: domain folders, functional library, composition root, approved deviations, and known debt.
 Every skill and agent reads it first.
 It replaces generic platform defaults, never the methodology rules, and a violation counts as accepted only when it is listed as an approved deviation.
 See `references/project-profile.md` for the contract.
