@@ -27,6 +27,8 @@ Findings with the same root cause get one ruling that lists all their ids.
 
 - **accept** when the finding is right and the plan is better for the change.
   Write the change: the sections to edit and the edit itself (what to add, replace or remove, with the new text or type sketch where it matters).
+  Name each section by its number (`§5.2`, `§6 Phase 3`): the next review round picks its reviewers by the sections that changed.
+  Write the smallest change that resolves the finding: edit the passage that holds the defect, and say a fact once, citing it elsewhere by id or section instead of repeating it.
   Accepted changes must agree with each other: check them as a set before you answer.
 - **reject** when the finding is wrong, the plan already handles it elsewhere (name where), it is outside §2's scope, or it repeats a finding §9 already rejected without new evidence.
   A minor or nit finding whose fix costs more than it returns may also be rejected; say what it would cost.

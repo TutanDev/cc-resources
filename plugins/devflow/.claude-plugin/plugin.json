@@ -1,7 +1,7 @@
 {
   "name": "devflow",
   "displayName": "Development Workflows",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-agent development workflows on Löwy's Method and Domain Modeling Made Functional: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises. Installs the lowy and dmf plugins as dependencies.",
   "author": {
     "name": "TutanDev",

@@ -84,7 +84,7 @@
 - **Changes:** <services, types and files, citing §4 and §5>
 - **Acceptance criteria:**
   - `AC-1.1` <observable, checkable statement>
-- **Tests:** <tests, their kind, and what each proves>
+- **Tests:** <one line per test to add or change, with its kind>
 - **Status:** pending
 
 ## 7. Verification

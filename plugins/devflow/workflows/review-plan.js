@@ -3,9 +3,9 @@ export const meta = {
   description: 'Review and revise a feature plan, round by round: blind Löwy, call-chain, DMF and delivery reviewers, adversarial verification of their findings, a judge that accepts, rejects or asks the user about each, the plan writer applying the rulings, and a report per round',
   whenToUse: 'After a feature plan exists in cc-docs/plans/ and before the user approves it; pass the feature name or plan path, plus --thorough, --lenses=lowy,chains,dmf,plan, --rounds=N or --date=YYYY-MM-DD. The devflow:plan-feature skill runs it, then takes the user\'s answers and approval',
   phases: [
-    { title: 'Load', detail: 'plan, status, profile, design sources, use cases, last round' },
-    { title: 'Review', detail: 'one blind reviewer per lens, and one per use case for call chains' },
-    { title: 'Verify', detail: 'skeptics try to refute critical and major findings' },
+    { title: 'Load', detail: 'plan, status, profile, design sources, use cases, last round, access' },
+    { title: 'Review', detail: 'one blind reviewer per lens; a re-review round runs the lenses its changes touched' },
+    { title: 'Verify', detail: 'a skeptic per lens tries to refute its critical and major findings' },
     { title: 'Judge', detail: 'accept, reject or ask the user, per finding' },
     { title: 'Revise', detail: 'the plan writer applies the rulings, and the round report is written' },
   ],
@@ -20,6 +20,11 @@ export const meta = {
 // One small read and one small write run before any reviewer, and a refused one stops the run before their work is spent.
 // The caller sees only the first few kilobytes of a workflow's result, so the result stays short: the details are in
 // the reports and the plan.
+
+// Every agent pays for its own context: its instructions, the plan, its reference files and the code it reads. So the
+// run keeps agents few, and runs each on the model and effort its work needs (ROLES below). --thorough spends more for
+// confidence: the review stages on the session's model and effort, a call-chain reviewer per use case, three skeptics
+// per lens, and every lens in a re-review round.
 
 // ---------- input ----------
 // A slash command passes one string: "<plan> [--flag] [--name=value]". A JSON object or a structured call passes the object.
@@ -56,13 +61,41 @@ const requestedLenses = Array.isArray(input.lenses) ? input.lenses : String(inpu
 const lenses = requestedLenses.length ? requestedLenses : Object.keys(LENSES)
 const unknownLenses = lenses.filter(l => !LENSES[l])
 if (unknownLenses.length) throw new Error(`Unknown lens ${unknownLenses.join(', ')}. Lenses: ${Object.keys(LENSES).join(', ')}.`)
-const votes = input.thorough ? 3 : 1
+const thorough = Boolean(input.thorough)
+// The skeptics per lens: a finding stands when at least half of those who answered uphold it.
+const votes = thorough ? 3 : 1
 // The rounds this run may take: each round after the first reviews the critical and major changes of the one before.
 const maxRounds = Math.max(1, Math.floor(Number(input.rounds)) || 2)
 // What changed since the plan's last review round, such as the user's answers; only a structured call can pass it.
 const focusInput = String(input.focus || '').trim()
 // A review never rewrites a plan that is being built or is built: it only reports.
 const REVISABLE = ['draft', 'reviewed', 'approved']
+
+// ---------- models ----------
+// The model and effort of each role; what a role leaves out comes from the session. Haiku does the mechanical work,
+// Sonnet reviews and verifies, and the judge and the writer, whose judgment becomes the plan, run on the session's model.
+const ROLES = {
+  mechanical: { model: 'haiku', effort: 'low' },
+  review: thorough ? {} : { model: 'sonnet', effort: 'high' },
+  verify: thorough ? {} : { model: 'sonnet', effort: 'medium' },
+  judge: thorough ? {} : { effort: 'high' },
+  revise: { effort: 'medium' },
+}
+
+// A re-review round runs the lenses that own the sections its changes touched: the call chains own §3 and §4, Löwy §4,
+// DMF §3 and §5, and the delivery lens every section, since each change must still land in a phase and be tested.
+// Without a section to go by, every lens runs.
+const SECTION_LENSES = { 3: ['chains', 'dmf'], 4: ['lowy', 'chains'], 5: ['dmf'] }
+function lensesFor(sections) {
+  const numbers = sections.flatMap(s => [
+    ...[...String(s).matchAll(/§\s*(\d)/g)].map(m => Number(m[1])),
+    ...(/\bphase\b/i.test(String(s)) ? [6] : []),
+  ])
+  if (thorough || numbers.length === 0) return lenses
+  const wanted = new Set(['plan', ...numbers.flatMap(n => SECTION_LENSES[n] || [])])
+  const chosen = lenses.filter(l => wanted.has(l))
+  return chosen.length ? chosen : lenses
+}
 
 // ---------- schemas ----------
 const STRINGS = { type: 'array', items: { type: 'string' } }
@@ -116,14 +149,24 @@ const CHECK = {
   required: ['findings', 'summary'],
   properties: { findings: { type: 'array', items: FINDING }, summary: { type: 'string' } },
 }
-const VERDICT = {
+const VERDICTS = {
   type: 'object',
-  required: ['verdict', 'status', 'severity', 'reason'],
+  required: ['verdicts'],
   properties: {
-    verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'refuted'] },
-    status: STATUS,
-    severity: SEVERITY,
-    reason: { type: 'string' },
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'verdict', 'status', 'severity', 'reason'],
+        properties: {
+          id: { type: 'string', description: 'the id of the finding, as given' },
+          verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'refuted'] },
+          status: STATUS,
+          severity: SEVERITY,
+          reason: { type: 'string' },
+        },
+      },
+    },
   },
 }
 const RULINGS = {
@@ -172,7 +215,7 @@ const REVISION = {
   type: 'object',
   required: ['written', 'status', 'revision', 'changes', 'questions', 'note'],
   properties: {
-    written: { type: 'boolean', description: 'whether the plan file was saved' },
+    written: { type: 'boolean', description: 'whether every change to the plan file was saved' },
     status: { type: 'string', description: 'the status the plan was left at' },
     revision: { type: 'string', description: 'the revision number the plan was left at' },
     changes: { type: 'string', description: 'one line per accepted ruling: <finding ids>: <what changed> (<sections>)' },
@@ -180,17 +223,12 @@ const REVISION = {
     note: { type: 'string', description: 'why the plan was not saved, word for word; else anything the caller must know, or empty' },
   },
 }
-const REPORT = {
-  type: 'object',
-  required: ['written', 'error', 'summary'],
-  properties: {
-    ...WRITTEN.properties,
-    summary: { type: 'string', description: 'Markdown, at most 6 lines' },
-  },
-}
 
 // ---------- helpers ----------
+const SEVERITIES = ['critical', 'major', 'minor', 'nit']
+const MARKS = { critical: '🔴', major: '🟠', minor: '🟡', nit: '⚪' }
 const isSerious = f => f.severity === 'critical' || f.severity === 'major'
+const bySeverity = (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity)
 // Shortens text for the result at a word boundary, without a final period: the result's own sentence ends it.
 const clip = (text, max) => {
   const t = String(text || '').trim().replace(/\.+$/, '')
@@ -200,7 +238,7 @@ const clip = (text, max) => {
   return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:(-]+$/, '')}...`
 }
 
-// Reviewers number their own findings; make every id unique across lenses.
+// Reviewers number their own findings; make every id unique.
 function uniqueIds(findings) {
   const seen = {}
   return findings.map(f => {
@@ -220,13 +258,74 @@ const rulingText = r => [
   r.ruling === 'accept' ? `Change:\n${r.change}` : '',
   r.ruling === 'ask' ? `Question:\n${r.question}` : '',
 ].filter(Boolean).join('\n')
-const renderRulings = (rulings, lensOf) => rulings.length === 0
-  ? 'No findings survived verification.'
+const lensesOf = (ids, lensOf) => [...new Set(ids.map(id => lensOf[id] || 'unknown lens'))].join(', ')
+const renderRulings = (rulings, lensOf, none) => rulings.length === 0
+  ? none
   : rulings.map((r, i) => [
-      `#### ${i + 1}. ${r.findings.join(', ')} (${[...new Set(r.findings.map(id => lensOf[id] || 'unknown lens'))].join(', ')}; ${r.severity}): ${r.ruling}`,
+      `#### ${i + 1}. ${r.findings.join(', ')} (${lensesOf(r.findings, lensOf)}; ${r.severity}): ${r.ruling}`,
       '',
       fenced(rulingText(r)),
     ].join('\n')).join('\n\n')
+
+// ---------- Markdown for the report ----------
+// The script writes the report from the findings and the rulings, so no agent spends tokens composing it: an agent
+// only saves it. It keeps the rules of these documents: no em dash, and one sentence per line of prose, where a
+// sentence ends at . ! or ? (not an ellipsis or an abbreviation), any closing quotes or brackets, then space before a
+// capital or inline code. Fenced code, tables, headings and HTML stay as written.
+const EM_DASH = String.fromCharCode(0x2014)
+const FENCE = /^\s*(`{3,}|~{3,})/
+const UNSPLITTABLE = /^\s*(?:#|\||<|\[[^\]]+\]:)/
+const SENTENCE_END = /(?<!\.)[.!?]["'”’)\]*_]*\s+(?=["'“‘(\[*_]*(?:\p{Lu}|`))/gu
+const ABBREVIATION = /\b(?:e\.g|E\.g|i\.e|I\.e|vs|cf|approx|Dr|Mr|Mrs|Ms|St|Fig|Eq|Sec|No|\p{Lu})\.$/u
+const sentences = text => {
+  const masked = text.replace(/(`+)[\s\S]*?\1/g, code => 'X'.repeat(code.length))
+  const pieces = []
+  let start = 0
+  for (const end of masked.matchAll(SENTENCE_END)) {
+    if (ABBREVIATION.test(masked.slice(0, end.index + 1))) continue
+    pieces.push(text.slice(start, end.index + end[0].trimEnd().length))
+    start = end.index + end[0].length
+  }
+  return [...pieces, text.slice(start)]
+}
+// A heading in an agent's text would break the report's outline, so it becomes a bold line.
+const prose = text => {
+  let fence = null
+  return String(text || '').split(EM_DASH).join('-').replace(/\r\n?/g, '\n').trim().split('\n').map(raw => {
+    const marker = (raw.match(FENCE) || [])[1]
+    if (fence) {
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = null
+      return raw
+    }
+    if (marker) { fence = marker; return raw }
+    const line = raw.replace(/^(\s*)#{1,6}\s+(.*?)[\s#]*$/, (_, space, title) => `${space}**${title.replace(/\*\*/g, '')}**`)
+    if (UNSPLITTABLE.test(line)) return line
+    const lead = line.match(/^\s*(?:>\s?)*(?:(?:[-*+]|\d+[.)])\s+)?/)[0]
+    const hang = lead.replace(/(?:[-*+]|\d+[.)])\s+$/, bullet => ' '.repeat(bullet.length))
+    return sentences(line.slice(lead.length)).map((s, i) => `${i ? hang : lead}${s.trim()}`).join('\n')
+  }).join('\n')
+}
+// A list item: the head, then the text on the same line when it starts as prose, and the rest indented under it.
+const item = (head, text, indent = '') => {
+  const lines = prose(text).split('\n')
+  if (!lines[0]) return ''
+  const inline = !/^\s*(?:`{3,}|~{3,}|#|\||<|>|[-*+]\s|\d+[.)]\s)/.test(lines[0])
+  return [
+    `${indent}- ${[head, inline ? lines[0] : ''].filter(Boolean).join(' ')}`,
+    ...(inline ? lines.slice(1) : lines).map(line => (line ? `${indent}  ${line}` : '')),
+  ].join('\n')
+}
+const field = (label, text, indent) => item(`**${label}:**`, text, indent)
+// Evidence quotes the plan or the code: when it spans lines or holds code, it goes in a fence, as written.
+const quoted = text => {
+  const t = String(text || '').replace(/\s+$/, '').replace(/^\s*\n/, '')
+  return t.includes('\n') || /[{};]|=>/.test(t) ? fenced(t) : t
+}
+// A table cell: the first paragraph, on one line, so no code or list lands in a table.
+const cell = (text, max = 200) => clip(String(text || '').trim().split(/\n\s*\n/)[0].split(EM_DASH).join('-').replace(/\s+/g, ' '), max).replace(/\|/g, '\\|')
+// An agent may give the revision with its date ("3, 2026-10-13"): the number is what is reported.
+const revisionOf = value => (String(value || '').match(/\d+/) || [String(value || '')])[0]
+const where = f => `\`${[f.file, f.lines].filter(Boolean).join(':')}\``
 
 // acceptEdits mode is not enough: it allows writes only in the folder the session started in, and no reads outside it.
 const ALLOW = "allow the workflow's reads and writes in advance: use auto mode, or add the rules `Read(~/.claude/plugins/**)` (the agents read their plugins' reference files) and `Edit(//**/cc-docs/**)` (they write the plan and the reports) to `permissions.allow` in `~/.claude/settings.json`"
@@ -235,10 +334,13 @@ const MOVE = 'Move the documents with `git mv .claude/docs cc-docs`, then run th
 // ---------- rounds ----------
 let today = input.date || ''
 let changes = focusInput
+let touched = []
+let seriousIds = []
 let expected = 0
 let unreviewed = 0
 let stopped = ''
 const rounds = []
+log(`Models: ${thorough ? 'the session\'s model reviews, verifies, judges and revises' : 'Sonnet reviews and verifies, the session\'s model judges and revises'}, and Haiku loads, checks access and saves the reports.`)
 
 for (let pass = 1; pass <= maxRounds; pass++) {
   // ---------- Load ----------
@@ -262,7 +364,7 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
 10. openQuestions: the \`Q-n\` ids still open in §8.
 11. lastRound: the highest n among the \`#### Round <n>, ...\` headings in §9, or 0 if there are none.
 12. legacyDocs: whether \`.claude/docs/\` under the repository root holds \`architecture.md\`, \`design/\`, \`plans/\` or \`reviews/\` (documents from an earlier version of these plugins).`,
-    { schema: LOAD, label: expected ? `load round ${expected}` : 'load', phase: 'Load' },
+    { schema: LOAD, label: expected ? `load round ${expected}` : 'load', phase: 'Load', ...ROLES.mechanical },
   )
   if (pass === 1) {
     if (!ctx || !ctx.planPath) {
@@ -284,6 +386,9 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
   const plan = ctx.planPath
   const feature = ctx.feature
   const canRevise = REVISABLE.includes(ctx.status)
+  // A round after the first in this run re-reviews serious changes: it rules only on critical and major findings.
+  const rereview = pass > 1
+  const roundLenses = rereview ? lensesFor(touched) : focusInput ? lensesFor([focusInput]) : lenses
   // Each round has its own report: a round never re-types an earlier one to append to it.
   const reportName = `${feature}-plan-review-${today}-round-${round}.md`
   const reportFile = `cc-docs/reviews/${reportName}`
@@ -291,7 +396,7 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
   const profileNote = ctx.profilePath
     ? `The project profile is \`${ctx.profilePath}\`: apply its precedence to every finding's status.`
     : 'There is no project profile: every finding is a violation.'
-  log(`Round ${round} (${pass} of at most ${maxRounds} in this run) on ${plan} (${ctx.status}, revision ${ctx.revision}): ${ctx.useCases.length} use cases, lenses ${lenses.join(', ')}, ${votes}-vote verification. ${ctx.stale.length ? `Stale inputs: ${ctx.stale.join(', ')}.` : ''}${ctx.missing.length ? ` Missing sections: ${ctx.missing.join(', ')}.` : ''}`)
+  log(`Round ${round} (${pass} of at most ${maxRounds} in this run) on ${plan} (${ctx.status}, revision ${revisionOf(ctx.revision)}): ${ctx.useCases.length} use cases, lenses ${roundLenses.join(', ')}, ${votes} ${votes === 1 ? 'skeptic' : 'skeptics'} per lens. ${ctx.stale.length ? `Stale inputs: ${ctx.stale.join(', ')}.` : ''}${ctx.missing.length ? ` Missing sections: ${ctx.missing.join(', ')}.` : ''}`)
   if (!canRevise) log(`The plan is ${ctx.status}: this review reports, and does not revise it.`)
   if (ctx.status === 'approved') log('The plan was approved; revising it sets it back to reviewed, and it needs the user\'s approval again.')
 
@@ -301,7 +406,7 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
         `This is an access check, not a review: do only this.
 Read the first reference file your instructions list, from your plugin's folder, with one Read call.
 Return whether the Read worked, the path you read, and the refusal word for word if it was refused. If the Read is refused, do not try another way.`,
-        { agentType: 'devflow:plan-reviewer', schema: READABLE, label: 'read check', phase: 'Load' },
+        { agentType: 'devflow:plan-reviewer', schema: READABLE, label: 'read check', phase: 'Load', ...ROLES.mechanical },
       ),
       () => agent(
         `Create the file \`${reportPath}\` with one Write call, with exactly the text between the markers, without the markers.
@@ -315,7 +420,7 @@ Do nothing else. If the Write is refused, do not try another way: return written
 This review round has not finished.
 Its report replaces this text, so if this text is still here, the run stopped before the end of the round.
 TEXT>>>`,
-        { schema: WRITTEN, label: 'write check', phase: 'Load' },
+        { schema: WRITTEN, label: 'write check', phase: 'Load', ...ROLES.mechanical },
       ),
     ])
     if (!read || !write) return 'review-plan: the access check failed, so nothing was reviewed. Run the review again.'
@@ -333,7 +438,7 @@ Then run the review again.`
   // ---------- checks ----------
   const focus = round === 1 ? '' : `This is review round ${round}. The plan's §9 records every ruling of the earlier rounds and the user's answers.
 ${changes ? `Changes made since round ${round - 1}: ${changes}
-Review the revised plan, but report only problems in these changes or caused by them, and critical problems that earlier rounds missed.` : 'Review the revised plan, and report only problems the earlier rounds did not rule on.'}
+${rereview && seriousIds.length ? `This round exists to check the critical and major ones: ${seriousIds.join(', ')}.\n` : ''}Review the revised plan, but report only problems in these changes or caused by them, and critical problems that earlier rounds missed.` : 'Review the revised plan, and report only problems the earlier rounds did not rule on.'}
 Do not raise again a finding that §9 records as rejected or asked, unless a change made it worse.`
   const common = [
     profileNote,
@@ -344,7 +449,7 @@ Do not raise again a finding that §9 records as rejected or asked, unless a cha
     `Cite the plan as \`file: "${plan} §<section>"\` with \`lines\` empty and the plan text quoted in \`evidence\`; cite code as \`file\` and \`lines\`, read in this session.`,
   ].filter(Boolean).join('\n')
   const checks = []
-  if (lenses.includes('lowy')) {
+  if (roundLenses.includes('lowy')) {
     checks.push({
       key: 'lowy',
       lens: 'lowy',
@@ -355,18 +460,23 @@ ${common}
 Return findings with \`lens: "lowy"\` and ids \`L-n\`. Put the services the plan touches, with their layers, and a one-line verdict in \`summary\`.`,
     })
   }
-  if (lenses.includes('chains')) {
-    ctx.useCases.forEach((uc, i) => checks.push({
-      key: `chains ${uc.id}`,
-      lens: 'chains',
-      prompt: `Plan mode: validate use case ${uc.id} "${uc.name}" of the feature plan \`${plan}\`. ${uc.summary}
-Trace the chain the plan proposes in §4.3 hop by hop: existing services in code mode (cite \`file:line\` for each hop), services the plan adds in design mode (cite the plan section).
-Check every hop against the closed architecture, the Design Don'ts and the event rules; check that the chain completes the use case, including each failure §3 lists; compare it with the chains of the existing use cases most like it (symmetry).
+  if (roundLenses.includes('chains') && ctx.useCases.length) {
+    // One reviewer traces every use case, so the plan, the rules and the code are read once; --thorough gives each its own.
+    for (const group of thorough ? ctx.useCases.map(uc => [uc]) : [ctx.useCases]) {
+      const one = group.length === 1
+      checks.push({
+        key: thorough ? `chains ${group[0].id}` : 'chains',
+        lens: 'chains',
+        prompt: `Plan mode: validate ${one ? `use case ${group[0].id}` : 'the use cases'} of the feature plan \`${plan}\`:
+${group.map(uc => `- ${uc.id} "${uc.name}": ${uc.summary}`).join('\n')}
+For ${one ? 'it' : 'each'}, trace the chain the plan proposes in §4.3 hop by hop: existing services in code mode (cite \`file:line\` for each hop), services the plan adds in design mode (cite the plan section).
+Check every hop against the closed architecture, the Design Don'ts and the event rules; check that the chain completes its use case, including each failure §3 lists; compare ${one ? 'it' : 'the chains with each other and'} with the chains of the existing use cases most like ${one ? 'it' : 'them'} (symmetry).
 ${common}
-Return findings with \`lens: "chains"\` and ids \`C-${i + 1}.n\`. Put the chain and its verdict in \`summary\`.`,
-    }))
+Return findings with \`lens: "chains"\` and ids \`C-<use case number>.<n>\` (\`C-2.1\` is the first finding on UC-2). Put ${one ? 'the chain and its verdict' : 'each chain and its verdict'} in \`summary\`.`,
+      })
+    }
   }
-  if (lenses.includes('dmf')) {
+  if (roundLenses.includes('dmf')) {
     checks.push({
       key: 'dmf',
       lens: 'dmf',
@@ -377,7 +487,7 @@ ${common}
 Return findings with \`lens: "dmf"\` and ids \`D-n\`. Put a short overview in \`summary\`.`,
     })
   }
-  if (lenses.includes('plan')) {
+  if (roundLenses.includes('plan')) {
     checks.push({
       key: 'plan',
       lens: 'plan',
@@ -386,27 +496,32 @@ ${common}
 Return findings with \`lens: "plan"\` and ids \`P-n\`. Put a one-line verdict in \`summary\`: can a developer agent build it phase by phase, and can a QA agent check every phase?`,
     })
   }
-  if (lenses.includes('chains') && ctx.useCases.length === 0) log('§3 lists no use cases, so no call chain was checked.')
+  if (roundLenses.includes('chains') && ctx.useCases.length === 0) log('§3 lists no use cases, so no call chain was checked.')
   log(`${checks.length} reviewers.`)
 
-  const verifyFinding = (f, check) => {
-    // Only critical and major violations are worth a skeptic; the rest go to the judge as found.
-    if (f.status !== 'violation' || !isSerious(f)) return Promise.resolve({ ...f, verification: 'not verified (minor)' })
-    return parallel(Array.from({ length: votes }, (_, vi) => () => agent(
-      `You are verifying a finding from another reviewer of the feature plan \`${plan}\`, not reviewing. Try to refute it.
+  // Only critical and major violations are worth a skeptic; the rest go to the judge as found. One skeptic takes all
+  // of a reviewer's serious findings, so the plan, the code and the rules are read once per lens.
+  const notVerified = f => ({ ...f, verification: f.status === 'violation' ? 'not verified (minor)' : 'not verified (not a violation)' })
+  const verify = async (findings, check) => {
+    const serious = findings.filter(f => f.status === 'violation' && isSerious(f))
+    if (serious.length === 0) return findings.map(notVerified)
+    const ballots = (await parallel(Array.from({ length: votes }, (_, vi) => () => agent(
+      `You are verifying findings from another reviewer of the feature plan \`${plan}\`, not reviewing. Try to refute each one.
 ${profileNote}
-Re-read the cited plan section, then the rest of the plan: the finding may already be handled in another section or a later phase. Open the code the finding cites.
-Then re-read the rule in your references, including the relaxed rules.
+For each finding, re-read the plan section it cites, then the rest of the plan: it may already be handled in another section or a later phase. Open the code it cites.
+Then re-read its rule in your references, including the relaxed rules.
 Refute it if the evidence is not in the plan or the code, the rule does not apply, or the plan handles it elsewhere (say where).
 Answer adjusted, with the corrected status or severity, if it is real but mis-rated. When in doubt, refute.
-${vi > 0 ? `You are independent verifier #${vi + 1}; reach your own conclusion.` : ''}
-Finding (JSON): ${JSON.stringify(f)}`,
-      { agentType: LENSES[check.lens].agentType, schema: VERDICT, phase: 'Verify', label: `verify ${f.id}${votes > 1 ? `.${vi + 1}` : ''}` },
-    ))).then(results => {
-      const ballots = results.filter(Boolean)
-      if (ballots.length === 0) return { ...f, verification: 'unverified', reason: 'no verifier answered' }
-      const upheld = ballots.filter(b => b.verdict !== 'refuted')
-      if (upheld.length * 2 <= ballots.length) return { ...f, verification: 'refuted', reason: ballots.map(b => b.reason).join(' | ') }
+Judge each finding on its own, and return one verdict per finding, with its id.${vi > 0 ? `\nYou are independent verifier #${vi + 1}; reach your own conclusions.` : ''}
+Findings (JSON): ${JSON.stringify(serious)}`,
+      { agentType: LENSES[check.lens].agentType, schema: VERDICTS, phase: 'Verify', label: `verify ${check.key}${votes > 1 ? ` #${vi + 1}` : ''}${round > 1 ? ` (round ${round})` : ''}`, ...ROLES.verify },
+    )))).filter(Boolean)
+    return findings.map(f => {
+      if (!serious.includes(f)) return notVerified(f)
+      const answers = ballots.map(b => (b.verdicts || []).find(v => v.id === f.id)).filter(Boolean)
+      if (answers.length === 0) return { ...f, verification: 'unverified', reason: 'no verifier answered' }
+      const upheld = answers.filter(v => v.verdict !== 'refuted')
+      if (upheld.length * 2 <= answers.length) return { ...f, verification: 'refuted', reason: answers.map(v => v.reason).join(' | ') }
       return { ...f, status: upheld[0].status, severity: upheld[0].severity, verification: upheld[0].verdict, reason: upheld[0].reason }
     })
   }
@@ -414,12 +529,11 @@ Finding (JSON): ${JSON.stringify(f)}`,
   // ---------- Review and Verify ----------
   const results = await pipeline(
     checks,
-    c => agent(c.prompt, { agentType: LENSES[c.lens].agentType, schema: CHECK, phase: 'Review', label: `${c.key}${round > 1 ? ` (round ${round})` : ''}` }),
+    c => agent(c.prompt, { agentType: LENSES[c.lens].agentType, schema: CHECK, phase: 'Review', label: `${c.key}${round > 1 ? ` (round ${round})` : ''}`, ...ROLES.review }),
     async (res, c) => {
       if (!res) return { key: c.key, res: null, findings: [] }
-      const own = res.findings.map(f => ({ ...f, lens: c.lens, id: round > 1 ? `R${round}-${f.id}` : f.id }))
-      const findings = await parallel(own.map(f => () => verifyFinding(f, c)))
-      return { key: c.key, res, findings: findings.map((f, i) => f || { ...own[i], verification: 'unverified', reason: 'verifier failed' }) }
+      const own = uniqueIds(res.findings.map(f => ({ ...f, lens: c.lens, id: round > 1 ? `R${round}-${f.id}` : f.id })))
+      return { key: c.key, res, findings: await verify(own, c) }
     },
   )
 
@@ -429,12 +543,15 @@ Finding (JSON): ${JSON.stringify(f)}`,
   const all = uniqueIds(done.flatMap(r => r.findings))
   const kept = all.filter(f => f.verification !== 'refuted')
   const refuted = all.filter(f => f.verification === 'refuted')
+  // A re-review round rules only on critical and major findings; its minor findings and nits go to the report.
+  const toJudge = rereview ? kept.filter(isSerious) : kept
+  const deferred = rereview ? kept.filter(f => !isSerious(f)) : []
   const summaries = done.filter(r => r.res).map(r => ({ check: r.key, summary: r.res.summary }))
-  log(`${all.length} findings, ${kept.length} kept, ${refuted.length} refuted.`)
+  log(`${all.length} findings, ${kept.length} kept, ${refuted.length} refuted.${deferred.length ? ` ${deferred.length} minor findings and nits go to the report without a ruling.` : ''}`)
 
   // ---------- Judge (barrier: rulings need every finding, to merge them and settle conflicts) ----------
-  let judged = { rulings: [], conflicts: [], notes: '', summary: 'No findings survived verification.' }
-  if (kept.length) {
+  let judged = { rulings: [], conflicts: [], notes: '', summary: '' }
+  if (toJudge.length) {
     phase('Judge')
     judged = await agent(
       `Rule on the findings of review round ${round} of the feature plan \`${plan}\`.
@@ -445,85 +562,133 @@ Reviewer summaries (JSON):
 ${JSON.stringify(summaries, null, 1)}
 
 Findings (JSON):
-${JSON.stringify(kept, null, 1)}`,
-      { agentType: 'devflow:plan-judge', schema: RULINGS, phase: 'Judge', label: `judge round ${round}` },
+${JSON.stringify(toJudge, null, 1)}`,
+      { agentType: 'devflow:plan-judge', schema: RULINGS, phase: 'Judge', label: `judge round ${round}`, ...ROLES.judge },
     )
     if (!judged) log('The judge failed: the plan is not revised, and the report lists the findings without rulings.')
   }
   const rulings = judged ? judged.rulings : []
   const ruled = new Set(rulings.flatMap(r => r.findings))
-  const unruled = judged ? kept.map(f => f.id).filter(id => !ruled.has(id)) : kept.map(f => f.id)
+  const unruled = toJudge.map(f => f.id).filter(id => !ruled.has(id))
   if (judged && unruled.length) log(`No ruling covers ${unruled.join(', ')}; they go to the report, not into the plan.`)
   const count = kind => rulings.filter(r => r.ruling === kind).length
   const serious = rulings.filter(r => r.ruling === 'accept' && isSerious(r))
   const revise = canRevise && judged !== null
   const last = pass === maxRounds
+  const clean = deferred.length ? 'No critical or major finding survived verification.' : 'No findings survived verification.'
 
-  // ---------- Revise and Report (the writer and the report agent both work from the rulings, side by side) ----------
+  // ---------- Revise and Report (the writer and the report's save run side by side) ----------
   phase('Revise')
   const lensOf = Object.fromEntries(all.map(f => [f.id, f.lens]))
+  const findingOf = Object.fromEntries(all.map(f => [f.id, f]))
   const writerPrompt = `Mode: Revise. Plan: \`${plan}\`. Round: ${round}. Date: ${today}. Report file name: \`${reportName}\`.
 Put your change list in \`changes\`: the next review round gets it.
 
 The judge's rulings, in order:
 
-${renderRulings(rulings, lensOf)}`
-  const reportPrompt = `Write the report of review round ${round} of the feature plan \`${plan}\` to \`${reportPath}\`, with one Write call${pass === 1 ? ': it replaces the placeholder there' : ''}.
-Modify no other file. If the Write is refused, do not try another way: return written false, with the refusal word for word.
-Read the plan only to quote the text the findings cite.
-Write the Markdown with one full sentence per line, and no em dash.
-Then return a summary of at most 6 lines: the outcome, the accepted critical and major changes, and what the user must decide.
+${renderRulings(rulings, lensOf, clean)}`
 
-Context: plan \`${plan}\`, ${ctx.status} at revision ${ctx.revision}; date ${today}; profile ${ctx.profilePath || 'none'}; lenses ${lenses.join(', ')}; ${votes}-vote verification of critical and major violations; round ${round}.
-${revise ? 'The plan writer applies the rulings while you write: describe accepted changes as rulings to apply, not as changes made, and leave the exact edits to the plan, whose §9 logs where each was applied.' : ''}
-${canRevise ? '' : `The plan is ${ctx.status}, so it is not revised: every ruling is a recommendation, and this report is its only record.`}
-Stale inputs: ${ctx.stale.join(', ') || 'none'}. Missing sections: ${ctx.missing.join(', ') || 'none'}. Open questions in §8 before this round: ${ctx.openQuestions.join(', ') || 'none'}. ${ctx.note}
-${revise && serious.length && !last ? `The judge accepted critical or major changes, so round ${round + 1} reviews them once the writer has applied them.` : ''}
-${revise && serious.length && last ? `The judge accepted critical or major changes, and they will not be re-reviewed: this run's round limit is ${maxRounds}. Say so in the gaps.` : ''}
-${judged ? '' : 'The judge failed: list the kept findings without rulings, and say so in the gaps.'}
+  const accepted = rulings.filter(r => r.ruling === 'accept').sort(bySeverity)
+  const asked = rulings.filter(r => r.ruling === 'ask')
+  const rejected = rulings.filter(r => r.ruling === 'reject')
+  const lensRows = [...new Set([...roundLenses, ...all.map(f => f.lens)])].map(lens => {
+    const ofLens = kept.filter(f => f.lens === lens)
+    return `| ${LENSES[lens] ? LENSES[lens].name : lens} | ${SEVERITIES.map(s => ofLens.filter(f => f.severity === s).length).join(' | ')} | ${refuted.filter(f => f.lens === lens).length} |`
+  })
+  const findingDetail = (f, indent, withFix) => [
+    item(`**${f.id}** (${f.lens}; ${f.severity}):`, `${cell(f.rule, 120)}, at ${where(f)}.`, indent),
+    field('Evidence', quoted(f.evidence), `${indent}  `),
+    field('Problem', f.problem, `${indent}  `),
+    withFix ? field('Proposed fix', f.fix, `${indent}  `) : '',
+    field('Verification', `${f.verification}${f.reason ? `: ${f.reason}` : ''}`, `${indent}  `),
+  ].filter(Boolean).join('\n')
+  // Numbered as in the Rulings table, the writer's prompt and §9.
+  const rulingDetail = (r, fields) => [
+    `#### ${rulings.indexOf(r) + 1}. ${MARKS[r.severity] || ''} ${r.findings.join(', ')} (${lensesOf(r.findings, lensOf)}; ${r.severity})`,
+    fields.filter(Boolean).join('\n'),
+    'The findings:',
+    r.findings.map(id => (findingOf[id] ? findingDetail(findingOf[id], '', false) : `- **${id}**: not among this round's findings.`)).join('\n'),
+  ].join('\n\n')
+  const gaps = [
+    ...failed.map(key => `- The ${key} review failed, so its findings are missing.`),
+    unruled.length ? `- No ruling covers ${unruled.join(', ')}: ${judged ? 'they are listed below and not applied to the plan' : 'the judge failed'}.` : '',
+    ctx.stale.length ? `- These inputs changed after the plan was written: ${ctx.stale.map(s => `\`${s}\``).join(', ')}.` : '',
+    ctx.missing.length ? `- The plan lacks these sections: ${ctx.missing.join(', ')}.` : '',
+    revise && serious.length && last ? `- The critical and major changes of this round will not be re-reviewed in this run: its round limit is ${maxRounds}.` : '',
+  ].filter(Boolean)
+  const outcome = [
+    `${all.length} ${all.length === 1 ? 'finding' : 'findings'} from the ${roundLenses.join(', ')} ${roundLenses.length === 1 ? 'lens' : 'lenses'}: ${kept.length} kept, ${refuted.length} refuted in verification.`,
+    toJudge.length === 0 ? clean
+      : judged ? `The judge accepted ${count('accept')} (${serious.length} critical or major), rejected ${count('reject')}, and sent ${count('ask')} to the user.`
+        : 'The judge failed, so nothing was ruled.',
+    deferred.length ? `The ${deferred.length} minor findings and nits below have no ruling: a re-review round rules only on critical and major findings.` : '',
+    rereview ? `This round re-reviewed the critical and major changes of round ${round - 1}${seriousIds.length ? ` (${seriousIds.join(', ')})` : ''}, with the lenses that own the sections they touched.` : '',
+    !canRevise ? `The plan is ${ctx.status}, so it is not revised: every ruling below is a recommendation, and this report is its only record.`
+      : revise && rulings.length ? 'The plan writer applies the rulings and logs them in the plan\'s §9, which says where each change went.' : '',
+    revise && serious.length && !last ? `Round ${round + 1} re-reviews the critical and major changes once they are applied.` : '',
+  ]
+  // A subsection with a title and its blocks; left out when it would be empty.
+  const subsection = (title, blocks) => {
+    const body = blocks.filter(Boolean)
+    return body.length ? [`### ${title}`, ...body].join('\n\n') : ''
+  }
+  const withoutRuling = [...deferred, ...kept.filter(f => unruled.includes(f.id))].sort(bySeverity)
+  const report = [
+    `# Plan Review: ${feature}`,
+    `> Source: \`${plan}\`, ${ctx.status} at revision ${revisionOf(ctx.revision)}; profile ${ctx.profilePath ? `\`${ctx.profilePath}\`` : 'none'}; ${today}.`,
+    `## Round ${round}, ${today}`,
+    outcome.filter(Boolean).join('\n'),
+    subsection('Kept Findings', [['| Lens | Critical | Major | Minor | Nit | Refuted |', '|---|---|---|---|---|---|', ...lensRows].join('\n')]),
+    subsection('Rulings', [rulings.length ? [
+      '| # | Findings | Lens | Severity | Ruling | Sections | Reason |',
+      '|---|---|---|---|---|---|---|',
+      ...rulings.map((r, i) => `| ${i + 1} | ${r.findings.join(', ')} | ${lensesOf(r.findings, lensOf)} | ${r.severity} | ${r.ruling} | ${cell(r.sections.join(', '), 80) || '-'} | ${cell(r.reason)} |`),
+    ].join('\n') : '']),
+    subsection(canRevise ? 'Accepted Changes' : 'Recommended Changes', accepted.map(r => rulingDetail(r, [
+      field('Sections', r.sections.join(', ') || 'none named'),
+      field('Reason', r.reason),
+      field('Change', r.change),
+    ]))),
+    subsection('Questions for the User', asked.map(r => rulingDetail(r, [
+      field('Reason', r.reason),
+      field('Question', r.question),
+      canRevise ? '- The plan writer adds it to §8 as an open question.' : '',
+    ]))),
+    subsection('Rejected', [rejected.map(r => item(`**${r.findings.join(', ')}** (${lensesOf(r.findings, lensOf)}; ${r.severity}):`, r.reason)).join('\n')]),
+    subsection('Conflicts Between Lenses', [(judged ? judged.conflicts : []).map(c => item('', c)).join('\n')]),
+    subsection('Judge\'s Notes', [judged ? prose(judged.notes) : '']),
+    subsection('Findings Without a Ruling', [withoutRuling.map(f => findingDetail(f, '', true)).join('\n')]),
+    subsection('Refuted in Verification', [refuted.map(f => item(`**${f.id}** (${f.lens}):`, `${cell(f.rule, 120)}. ${f.reason}`)).join('\n')]),
+    subsection('Gaps', [gaps.join('\n')]),
+    subsection('Reviewer Summaries', summaries.map(s => `#### ${s.check}\n\n${prose(s.summary)}`)),
+  ].filter(Boolean).join('\n\n') + '\n'
 
-Report structure:
-0. Title \`# Plan Review: ${feature}\`, then a \`> Source:\` line with the plan path, the profile and the date.
-1. Heading \`## Round ${round}, ${today}\`, then the outcome in one or two sentences: findings kept and refuted, rulings accepted, rejected and sent to the user, and what happens next.
-2. A table of kept findings per lens and severity.
-3. Rulings: a table of finding ids, lens, severity, ruling, a short reason and the sections to change.
-4. Accepted findings, most severe first: severity mark (🔴 critical, 🟠 major, 🟡 minor, ⚪ nit), id, rule, file and section, quoted evidence, the problem, the verification verdict, and the change, ${canRevise ? 'in one or two sentences' : 'in full, as the judge wrote it'}.
-5. Questions for the user, from the rulings sent to them: ${canRevise ? 'each in one or two sentences, with the judge\'s recommendation; the writer adds them to §8' : 'each in full, with its options and the judge\'s recommendation'}.
-6. Rejected findings: one line each with the reason.
-7. Conflicts between lenses and how the judge settled them; the judge's notes.
-8. Refuted during verification: one line each (id, rule, reason).
-9. Gaps: reviews that failed, findings no ruling covers, stale inputs, missing sections, changes that will not be re-reviewed.
-Use \`###\` for the subsections, and leave out a subsection that would be empty.
-
-Reviews that failed: ${failed.join(', ') || 'none'}. Findings no ruling covers: ${unruled.join(', ') || 'none'}.
-Reviewer summaries (JSON):
-${JSON.stringify(summaries, null, 1)}
-
-Findings kept (JSON):
-${JSON.stringify(kept, null, 1)}
-
-Rulings (JSON):
-${JSON.stringify(judged, null, 1)}
-
-Findings refuted (JSON):
-${JSON.stringify(refuted.map(f => ({ id: f.id, lens: f.lens, rule: f.rule, file: f.file, reason: f.reason })), null, 1)}`
-  const [revision, report] = await parallel([
-    () => revise ? agent(writerPrompt, { agentType: 'devflow:plan-writer', schema: REVISION, phase: 'Revise', label: `revise round ${round}` }) : Promise.resolve(null),
-    () => agent(reportPrompt, { schema: REPORT, phase: 'Revise', label: `report round ${round}` }),
+  const reportPrompt = `Write the file \`${reportPath}\` with exactly the text between the markers, without the markers: it is the report of review round ${round} of the feature plan \`${plan}\`.
+If the file exists, Read it first, since Write replaces only a file read in this session; then save the text with one Write call.
+Do not change, shorten or reformat anything, and modify no other file.
+If the Write is refused for permission, do not try another way: return written false, with the refusal word for word.
+If a hook refuses the text's form, change only the lines it names, as it says, and write again.
+<<<REPORT
+${report}REPORT>>>`
+  const [revision, saved] = await parallel([
+    () => revise ? agent(writerPrompt, { agentType: 'devflow:plan-writer', schema: REVISION, phase: 'Revise', label: `revise round ${round}`, ...(rulings.length ? ROLES.revise : ROLES.mechanical) }) : Promise.resolve(null),
+    () => agent(reportPrompt, { schema: WRITTEN, phase: 'Revise', label: `report round ${round}`, ...ROLES.mechanical }),
   ])
   const revised = Boolean(revise && revision && revision.written)
   if (revise && !revised) log(`The plan writer did not save round ${round}: ${revision ? revision.note : 'the agent failed'}.`)
-  if (!report || !report.written) log(`The report of round ${round} was not written: ${report ? report.error : 'the agent failed'}.`)
+  if (!saved || !saved.written) log(`The report of round ${round} was not written: ${saved ? saved.error : 'the agent failed'}.`)
 
   rounds.push({
-    round, plan, ctx, reportFile, failed, unruled, revise, revision, report,
-    kept: kept.length, refuted: refuted.length, judged: judged !== null,
-    accepted: count('accept'), serious: serious.length, rejected: count('reject'), asked: count('ask'),
+    round, plan, ctx, reportFile, failed, unruled, revise, revision, saved,
+    lenses: roundLenses, kept: kept.length, refuted: refuted.length, deferred: deferred.length, judged: judged !== null, toJudge: toJudge.length, ruled: rulings.length,
+    summary: judged ? judged.summary : '', accepted: count('accept'), serious: serious.length, rejected: count('reject'), asked: count('ask'),
   })
   // Another round only reviews accepted critical or major changes, and only once the writer has made them.
   if (!revised || serious.length === 0) break
   if (last) { unreviewed = round; break }
   changes = revision.changes
+  touched = serious.flatMap(r => r.sections)
+  seriousIds = serious.flatMap(r => r.findings)
   expected = round + 1
 }
 
@@ -532,17 +697,18 @@ const first = rounds[0]
 const final = rounds[rounds.length - 1]
 const lastSaved = [...rounds].reverse().find(r => r.revision && r.revision.written)
 const status = lastSaved ? lastSaved.revision.status : final.ctx.status
-const revisionNo = lastSaved ? lastSaved.revision.revision : final.ctx.revision
+const revisionNo = revisionOf(lastSaved ? lastSaved.revision.revision : final.ctx.revision)
 const open = [...new Set([...final.ctx.openQuestions, ...(final.revision && final.revision.written ? final.revision.questions : [])])]
 
 const roundLines = withSummaries => rounds.flatMap(r => [
   '',
-  `Round ${r.round}: ${r.kept} findings kept, ${r.refuted} refuted; ${r.judged ? `rulings: ${r.accepted} accepted (${r.serious} critical or major), ${r.rejected} rejected, ${r.asked} sent to the user` : 'the judge failed, so nothing was ruled'}.${r.unruled.length && r.judged ? ` Without a ruling: ${r.unruled.join(', ')}.` : ''}${r.failed.length ? ` Reviews that failed: ${r.failed.join(', ')}.` : ''}`,
-  r.report && r.report.written ? `- Report: \`${r.reportFile}\`` : `- Report: not written (${r.report ? clip(r.report.error, 200) : 'the report agent failed; relaunch to retry it from cached results'}).`,
+  `Round ${r.round}${r.lenses.length < lenses.length ? ` (lenses ${r.lenses.join(', ')})` : ''}: ${r.kept} findings kept, ${r.refuted} refuted; ${!r.toJudge ? `${r.deferred ? 'none critical or major' : 'none left'}, so nothing needed a ruling` : r.judged ? `rulings: ${r.accepted} accepted (${r.serious} critical or major), ${r.rejected} rejected, ${r.asked} sent to the user` : 'the judge failed, so nothing was ruled'}.${r.deferred ? ` ${r.deferred} minor findings and nits are in the report, without a ruling.` : ''}${r.unruled.length && r.judged ? ` Without a ruling: ${r.unruled.join(', ')}.` : ''}${r.failed.length ? ` Reviews that failed: ${r.failed.join(', ')}.` : ''}`,
+  r.saved && r.saved.written ? `- Report: \`${r.reportFile}\`` : `- Report: not written (${r.saved ? clip(r.saved.error, 200) : 'the report agent failed; relaunch to retry it from cached results'}).`,
   !r.revise ? `- Plan: not revised (${r.judged ? `it is ${r.ctx.status}, so every ruling is a recommendation` : 'no rulings'}).`
-    : r.revision && r.revision.written ? `- Plan: revised to revision ${r.revision.revision}${r.revision.questions.length ? `, with ${r.revision.questions.join(', ')} added to §8` : ''}.`
+    : r.revision && r.revision.written && !r.ruled ? `- Plan: the round is logged in §9, at revision ${revisionOf(r.revision.revision)}.`
+    : r.revision && r.revision.written ? `- Plan: revised to revision ${revisionOf(r.revision.revision)}${r.revision.questions.length ? `, with ${r.revision.questions.join(', ')} added to §8` : ''}.`
       : `- Plan: not saved (${r.revision ? clip(r.revision.note, 200) : 'the plan writer failed'}).`,
-  ...(withSummaries && r.report && r.report.written && r.report.summary ? clip(r.report.summary, 900).split('\n').map(line => `  ${line}`) : []),
+  ...(withSummaries && r.summary ? clip(r.summary.split(EM_DASH).join('-'), 900).split('\n').map(line => `  ${line}`) : []),
 ])
 
 const unsaved = rounds.some(r => r.revise && !(r.revision && r.revision.written))
@@ -552,7 +718,7 @@ if (unreviewed) next.push(`Tell the user that the critical or major changes of r
 if (stopped) next.push(`The run stopped early: ${stopped}.`)
 if (open.length) next.push(`Ask the user the open questions in §8 (${open.join(', ')}), with their options and recommendations, and send the answers to \`devflow:plan-writer\` in Answers mode.`)
 else if (REVISABLE.includes(status) && !unsaved && !unreviewed && !stopped && rounds.every(r => r.judged)) next.push('No question is open, and no critical or major change is left without a re-review: once the user has read the reports, ask for their approval of the plan.')
-next.push('Read the reports for the findings and the rulings, and the plan\'s §9 for where each change was applied.')
+next.push('The plan\'s §8 and §9 hold the open questions and where each change was applied; the reports hold every finding and ruling in full.')
 
 const compose = withSummaries => [
   `review-plan: \`${first.plan}\`, ${rounds.length === 1 ? `round ${first.round}` : `rounds ${first.round} to ${final.round}`} (at most ${maxRounds} in this run), ${today}. The plan is ${status} at revision ${revisionNo}.`,

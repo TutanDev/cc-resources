@@ -48,6 +48,10 @@ A plan that is `in-progress` or `done` is not revised by a review: the review on
 The section numbers are fixed, so a finding can cite `§4.1` or `§6 Phase 2`.
 A section that does not apply stays, with one line saying why (for example "No persisted data changes.").
 
+Every reviewer, the judge and every developer agent reads the whole plan, so each line is paid for once per reader.
+Say each fact once, in the section that owns it, and cite it elsewhere by its id or section (`UC-2`, `AC-3.1`, `§5.2`).
+A type sketch shows the shape (the cases, the fields and the signatures), not the bodies.
+
 ### §1 Goal
 
 What the feature does, for whom, and how anyone will know it works, in two to five sentences.
@@ -122,7 +126,7 @@ Each review round adds one table:
 | P-1 | plan | major | asked | <why> | Q-3 |
 ```
 
-A round with no finding left after verification adds the line "No findings survived verification."
+A round with nothing to rule on adds one line that says why instead, such as "No findings survived verification." or, for a round that re-reviews earlier changes and rules only on critical and major findings, "No critical or major finding survived verification."
 Rounds are numbered over the plan's whole life: a later review continues from the last round in §9.
 User decisions are entries too: `Q-3 answered, <YYYY-MM-DD>: <answer>. Applied in <sections>.` and `Approved by the user, <YYYY-MM-DD>.`
 
@@ -138,7 +142,8 @@ Each phase in §6 has this shape:
 - **Acceptance criteria:**
   - `AC-1.1` <an observable statement an agent can check>
   - `AC-1.2` ...
-- **Tests:** the tests to add or change, their kind (unit, property, integration or end-to-end), and what each one proves.
+- **Tests:** the tests to add or change, each in one line with its kind (unit, property, integration or end-to-end).
+  What a test proves is said once, in the acceptance criterion that names it.
 - **Status:** pending
 ```
 

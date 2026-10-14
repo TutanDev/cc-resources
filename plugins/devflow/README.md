@@ -43,8 +43,9 @@ The review also runs `lowy:lowy-reviewer`, `lowy:call-chain-validator` and `dmf:
 |---|---|
 | `/devflow:review-plan <feature> [--thorough] [--lenses=lowy,chains,dmf,plan] [--rounds=N]` | Reviews and revises a plan, round by round: blind reviewers, verification, the judge's rulings, the writer applying them, and a report per round |
 
-`--thorough` verifies each critical and major finding with three independent skeptics instead of one.
+`--thorough` spends more for confidence: the reviewers, the skeptics and the judge run on your session's model and effort, each use case gets its own call-chain reviewer, three independent skeptics verify each lens's critical and major findings instead of one, and a second round runs every lens.
 `--rounds=N` sets the most rounds in one run (default 2): another round runs only when the judge accepted a critical or major change, and it reviews only those changes and what they broke.
+That round runs the lenses that own the sections the changes touched, plus the delivery lens, and rules only on critical and major findings: its minor findings and nits go to its report without a ruling.
 `--date=YYYY-MM-DD` fixes the reports' date.
 Rounds are numbered over the plan's whole life, so a review after you answer its questions starts at the round after the last one in §9.
 
@@ -52,6 +53,26 @@ Workflows need the Workflow tool; where your plan has it off by default, add `"e
 Without it, `plan-feature` runs the same agents directly, without the verification pass.
 The workflow's agents read the plugins' reference files and write the plan and the reports, so allow both first (see [Permissions](#permissions)).
 In `claude -p` (scripts, CI), allow the `Workflow` tool and set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`: workflows run in the background, and a print session otherwise stops them 10 minutes after its last turn.
+
+### Cost and Models
+
+Most of a review's tokens are context: each agent reads its instructions, the plan, its reference files and the code it checks.
+So the workflow keeps agents few, and runs each on the model its work needs:
+
+| Role | Model and effort | Agents in a round |
+|---|---|---|
+| Loading the plan, the access check, saving the report | Haiku, low | 2, plus 2 for the access check in the first round |
+| Reviewers | Sonnet, high | One per lens: Löwy, call chains (every use case), DMF, delivery; a re-review runs only the lenses its changes touched |
+| Skeptics | Sonnet, medium | One per lens that raised a critical or major violation, checking all of them |
+| Judge | Your session's model, high effort | One, when a finding needs a ruling |
+| Writer | Your session's model, medium effort; Haiku when the round only logs itself in §9 | One |
+
+The script renders each round's report from the findings and the rulings, so the agent that saves it composes nothing.
+The writer revises the plan with an edit per changed passage instead of rewriting the whole file.
+The plan contract keeps plans lean, saying each fact once, since every agent that reads the plan pays for every line.
+
+On a sample feature with a 58K-character draft plan, `/devflow:plan-feature` with a two-round review took 15 minutes, 17 workflow agents and $5 at API prices, where the previous version took 52 minutes, 29 agents and $29.
+Both fixed the two defects that the previous version verified as critical or major, though the new one rated one of them minor.
 
 ## Quick Start
 
@@ -69,10 +90,10 @@ you ──▶ plan-feature: clarify ──▶ plan-writer: draft
                      ┌──────────────────┼──────────────────┬──────────────────┐
                      ▼                  ▼                  ▼                  ▼
                lowy-reviewer   call-chain-validator   dmf-reviewer      plan-reviewer
-                 (Löwy)         (one per use case)       (DMF)           (delivery)
+                 (Löwy)          (every use case)        (DMF)           (delivery)
                      └──────────────────┼──────────────────┴──────────────────┘
                                         ▼
-                     skeptics try to refute each critical and major finding
+              a skeptic per lens tries to refute its critical and major findings
                                         ▼
                      plan-judge: accept, reject, or ask you
                                         │
@@ -81,7 +102,7 @@ you ──▶ plan-feature: clarify ──▶ plan-writer: draft
    plan-writer: apply the rulings, log §9      the round's report
                      └──────────────────┬──────────────────┘
                                         ▼
-               re-review the changes once, if a critical or major change was made
+    re-review the critical and major changes once, with the lenses they touched
                                         ▼
                      you: answer the open questions, approve
 ```
@@ -96,7 +117,7 @@ The roles are independent by construction:
 
 ## Permissions
 
-Plans and reports live under `cc-docs/` at the repository root, and the review workflow's agents write them: the writer revises the plan, and a report agent writes each round's report.
+Plans and reports live under `cc-docs/` at the repository root, and the review workflow's agents write them: the writer revises the plan, and an agent saves each round's report.
 The reviewers also read their plugins' reference files, which Claude Code installs under `~/.claude/plugins/`, outside your repository.
 Workflow agents run in the background, so they cannot ask you to approve a read or a write, and Claude Code refuses it unless a permission already covers it.
 Allow both with one of:
