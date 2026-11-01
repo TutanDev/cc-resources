@@ -2,6 +2,7 @@
 
 A Claude Code plugin for **Domain Modeling Made Functional** (Scott Wlaschin) in C#: discover the domain, model it with types that make illegal states unrepresentable, implement workflows as Result-based pipelines, and bridge them to serialization and persistence.
 It also reviews existing code for DMF modeling and for functional style, after Enrico Buonanno's *Functional Programming in C#*.
+Its hooks hold C# work to the skills, so design, implementation and review go through them whatever the prompt says.
 
 It is useful in any C# codebase, and tuned for Unity and XR.
 Code is written in C# by default, following `references/csharp-mapping.md`; ask for F# to get the book's notation.
@@ -39,6 +40,36 @@ Claude delegates to them from the skills, or when you ask for a review.
 |---|---|
 | `dmf:dmf-reviewer` | Domain types, illegal states, workflows, error unions, DTOs and versioning |
 | `dmf:fp-reviewer` | Function-level functional style (guidelines G01-G12), with Unity hot-path exceptions |
+
+## Hooks
+
+Function hooks hold C# work to the skills, instead of leaving it to whether a skill's description matched the prompt.
+`lowy` and `devflow` install `dmf`, so they bring these hooks too.
+
+| When | What happens |
+|---|---|
+| Every session | A section of the system prompt routes designing, implementing and reviewing C# to the matching skill or reviewer |
+| A C# file is about to be written | The call is refused until the agent writing it has loaded `domain-modeling`, `workflow-implementation`, `serialization-persistence` or `orchestrator`; the refusal says which fits what |
+| A turn that changed C# is about to end | It is sent back once, with the files, to run `dmf:fp-reviewer`, and `dmf:dmf-reviewer` where types, workflows or DTOs changed |
+| `/code-review` runs | It also runs both dmf reviewers on the C# in scope and reports their findings that hold |
+| `/simplify` runs | It also runs `dmf:fp-reviewer` on the changed C# and applies its refactors that hold |
+
+- A skill counts for the agent that loaded it: the main conversation, a subagent, or a fork of an agent that had one.
+  A fresh subagent loads its own, so code it writes is written with the guidance too.
+- `domain-discovery` alone does not open the gate: it shapes a design, not code.
+- Code with little domain logic in it, such as an editor window, a MonoBehaviour or a test, still goes through the closest skill.
+- Writes are seen through `Edit`, `Write`, Serena's editing tools, and a shell command that redirects into a `.cs` file, `tee`s into one, edits one in place with `sed -i`, or writes one with `Set-Content`, `Add-Content` or `Out-File`.
+- Generated C# (`*.g.cs`, `*.designer.cs`, `*.generated.cs`) and build output under `obj/` and `bin/` are not held.
+- A turn that ran a dmf reviewer ends as it is, fixes made after the review included.
+- A turn that was sent back and still ends without a review ends: the hook asks once, so a person who asked for no review is not argued with.
+- A turn that waits on background work ends as it is, and the next one is judged on everything written meanwhile.
+- A `/clear` starts over: a skill loaded before it no longer counts.
+
+Limits:
+
+- A file a shell command writes some other way, such as `cp`, `mv` or a script, is not seen.
+- A Serena `replace_in_files` call over the whole project, with no `.cs` path or glob, is not seen.
+- The hooks are built on function hooks, an early-access Claude Code API, and were written and tested on Claude Code 2.1.314.
 
 ## Quick Start
 
@@ -82,16 +113,21 @@ See `references/project-profile.md` for the contract.
 dmf/
 ├── .claude-plugin/plugin.json
 ├── agents/          Read-only reviewers
+├── hooks/           The function hooks that hold C# work to the skills
 ├── references/      C# mapping for DMF and functional-style guidelines, plus the contracts shared
 │                    with lowy: project profile, review findings, design directory
-└── skills/          One folder per skill, with its own references and output templates
+├── skills/          One folder per skill, with its own references and output templates
+├── tests/           The hooks' tests
+└── types/           The session values the hooks keep, as a typed contract
 ```
 
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/lowy/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
-Run `claude plugin validate plugins/dmf` before pushing.
+Run `claude plugin test plugins/dmf` and `claude plugin validate plugins/dmf` before pushing.
+To try a hooks change live, load the folder for one session with `claude --plugin-dir plugins/dmf`; saving a file reloads the hooks.
+Claude Code lays the API's types in `.claude-plugin/types/` when it loads the folder, and `tsconfig.json` extends them, so `tsc -p plugins/dmf` type-checks the hooks.
 
 ## Sources
 

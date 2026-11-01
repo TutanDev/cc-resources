@@ -7,7 +7,7 @@ It holds five plugins: two for designing C# and Unity code, one that runs multi-
 
 | Plugin | What it does | Contents | Depends on |
 |---|---|---|---|
-| [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers | 5 skills, 2 agents | Nothing |
+| [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them | 5 skills, 2 agents, function hooks on C# writes, turn ends, the system prompt and `/code-review` | Nothing |
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
 | [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises | 1 skill, 3 agents, 1 workflow | `lowy` (and through it `dmf`) |
 | [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown | Function hooks on `Bash`, `PowerShell`, `Edit`, `Write` and `NotebookEdit` calls, and on the commit and pull request attribution text | Nothing |
@@ -70,7 +70,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Dependency | Needed by | Notes |
 |---|---|---|
 | Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
-| Function hooks | `house-rules` | An early-access API; the plugin was written and tested on Claude Code 2.1.294 |
+| Function hooks | `house-rules`, `dmf` (and through it `lowy` and `devflow`) | An early-access API; `house-rules` was written and tested on Claude Code 2.1.294, and the `dmf` hooks on 2.1.314 |
 | The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
 | Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json`, which `workstation` does for you |
 
@@ -105,11 +105,11 @@ Everything a plugin needs beyond this repository, and who needs it.
 
 | Dependency | Used for |
 |---|---|
-| The Claude Code CLI | `claude plugin validate` and `claude plugin test plugins/house-rules` |
+| The Claude Code CLI | `claude plugin validate`, and `claude plugin test` on `plugins/dmf` and `plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/setup-user-settings.test.sh` |
 | Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` and `node plugins/lowy/tests/workflows.test.mjs` |
-| TypeScript (`tsc`) | Optional: type-checking `house-rules` with `tsc -p plugins/house-rules` |
+| TypeScript (`tsc`) | Optional: type-checking the function hooks with `tsc -p plugins/dmf` and `tsc -p plugins/house-rules` |
 | GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` and `lowy` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
 
 ## Maintaining
@@ -117,7 +117,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 - `dmf`, `lowy` and `devflow` carry identical copies of three contracts: `project-profile.md`, `review-findings.md` and `design-directory.md`, under `plugins/<name>/references/`.
   An installed plugin cannot read another plugin's files, so edit one copy, copy it to the other two plugins, and run `bash scripts/check-shared.sh`; CI runs the same check on every push.
 - Run `claude plugin validate .` and `claude plugin validate plugins/<name>` before pushing.
-- Run `claude plugin test plugins/house-rules` after changing its hooks.
+- Run `claude plugin test plugins/dmf` or `claude plugin test plugins/house-rules` after changing that plugin's hooks.
 - Run `bash plugins/workstation/tests/setup-user-settings.test.sh` after changing the `workstation` hook; CI runs it on every push.
 - Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow, and `node plugins/lowy/tests/workflows.test.mjs` after changing a `lowy` one; CI runs both on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
