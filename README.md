@@ -1,3 +1,6 @@
+[![AgentShield](https://merx.help/badge/A+.svg)](https://merx.help/shield)
+
+
 # cc-resources
 
 TutanDev's Claude Code plugin marketplace.
