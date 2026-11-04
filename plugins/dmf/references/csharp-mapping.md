@@ -35,10 +35,10 @@ Read it before writing or reviewing any C# domain code.
 | `Result.mapError` | No typed error track: add context with `F.Error("context", inner)` inside `.IfFail(..)` |
 | `tee` | `.Then(action)` on a `Result`/`Optional`, or `F.Tee(action)` as a function |
 | `predicateToPassthru` | `.Filter(predicate)` only when the generic "Predicate not satisfied" error is acceptable; otherwise `.Bind` with a domain error |
-| exception adapter | `F.Try(() => ..)`, `F.TryAsync(() => ..)` |
+| exception adapter | `F.Try(() => ..)`; async, `UniTaskF.TryAsync(() => ..)` |
 | `Option.defaultValue` | `.Or(fallback)`, `.OrElse(() => ..)` |
 | `Option.toResult` | `.ToResult(() => F.Error(".."))` |
-| `Async<Result<'T,'E>>` | `UniTask<Result<T>>` with `MapAsync`, `BindAsync`, `ThenAsync`, `MatchAsync` |
+| `Async<Result<'T,'E>>` | `UniTask<Result<T>>` with `MapAsync`, `BindAsync`, `ThenAsync`, `MatchAsync`, in the `Tutan.Functional.UniTask` assembly |
 | applicative validation | `F.HarvestErrors(validators)` for one value; `.Map(curriedFn).Apply(r2).Apply(r3)` to build from several |
 | fail-fast validation | `F.FailFast(validators)` |
 | `x |> f` | `x.Pipe(f)` |
@@ -118,7 +118,9 @@ public abstract record PaymentMethod
 }
 ```
 
-- The private constructor closes the set: no code outside the base can add a case.
+- The private constructor keeps other code from calling the base's constructor.
+  A record that is not sealed also has a protected copy constructor, which C# refuses to make private (CS8878), so a record elsewhere can still derive a case through it.
+  The set is closed by convention, not by the compiler; the project profile says whether that is accepted.
 - A case without data is a singleton (`Instance`).
 - The base holds no data and no behavior, so this is a union, not the "inheritance hierarchy" DMF warns against.
   Open hierarchies (public or protected base constructors, virtual behavior, cases in other files or assemblies) stay forbidden.
@@ -211,7 +213,7 @@ public static PlaceOrder Create(CheckProductExists checkProduct, GetProductPrice
 - Query syntax is the C# counterpart of the `result { }` computation expression.
 - Fluent chains (`.Bind(..).Map(..)`) are equivalent; follow the profile's preference.
 - Steps that cannot fail are plain functions joined with `.Map`.
-- Wrap exception-throwing calls at the edge with `F.Try` / `F.TryAsync`; exceptions never cross into domain code.
+- Wrap exception-throwing calls at the edge with `F.Try` / `UniTaskF.TryAsync`; exceptions never cross into domain code.
 
 ### Collections of Results
 
@@ -262,6 +264,8 @@ Classify before modeling: domain errors (expected, part of the language) go in t
 ## Async
 
 - Async effects are `UniTask<Result<T>>`, composed with `MapAsync`, `BindAsync`, `ThenAsync` and `MatchAsync`.
+- In Tutan.Functional the async API, with `UniTaskF.TryAsync`, is its own assembly, `Tutan.Functional.UniTask`, compiled only when UniTask is installed.
+  An asmdef that awaits a `Result` references it and UniTask; one that does not, such as a domain assembly, needs neither.
 - Await at the edge: the application service or workflow entry point and the adapters that own I/O (in a Löwy architecture: Managers and ResourceAccess); domain functions stay synchronous and pure.
 - Pass `CancellationToken` explicitly; cancellation is not a domain error.
 
