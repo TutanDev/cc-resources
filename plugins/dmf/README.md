@@ -3,6 +3,7 @@
 A Claude Code plugin for **Domain Modeling Made Functional** (Scott Wlaschin) in C#: discover the domain, model it with types that make illegal states unrepresentable, implement workflows as Result-based pipelines, and bridge them to serialization and persistence.
 It also reviews existing code for DMF modeling and for functional style, after Enrico Buonanno's *Functional Programming in C#*.
 Its hooks hold C# work to the skills, so design, implementation and review go through them whatever the prompt says.
+They also log every reviewer run, with the time it took, the tokens it spent and its report.
 
 It is useful in any C# codebase, and tuned for Unity and XR.
 Code is written in C# by default, following `references/csharp-mapping.md`; ask for F# to get the book's notation.
@@ -71,6 +72,21 @@ Limits:
 - A Serena `replace_in_files` call over the whole project, with no `.cs` path or glob, is not seen.
 - The hooks are built on function hooks, an early-access Claude Code API, and were written and tested on Claude Code 2.1.314.
 
+## Reviewer Log
+
+Every run of `dmf:fp-reviewer` and `dmf:dmf-reviewer` is logged: how long it took, the tokens it spent and the report it gave.
+
+- When a run ends, a line in the transcript says how it ended, how long it took and what it spent, such as `dmf:fp-reviewer finished in 34s · 58.4k tokens, 3.6k of them output`.
+  Claude never reads the line, so it costs nothing.
+- `/dmf-reviews` opens a pane listing the reviewers running now and the runs that ended, newest first, under their totals.
+  Select a run to see its date, project, duration, model, tokens and full report; `b` goes back to the list.
+- Tokens are summed over every request the reviewer made: input, cache writes, cache reads and output.
+  That is more than the count on the Agent tool's row, which is about how large the reviewer's context grew by its last request.
+- The newest 50 runs are kept across sessions and projects, in the plugin's own store, and a report over 40,000 characters is kept cut.
+- A reviewer resumed with a message is logged again for that run.
+- The log never stands in the way of what it logs: a failure in it is reported, and the spawn or the turn goes on as it would without it.
+- The log was written and tested on Claude Code 2.1.317.
+
 ## Quick Start
 
 | You want to... | Say |
@@ -113,7 +129,7 @@ See `references/project-profile.md` for the contract.
 dmf/
 ├── .claude-plugin/plugin.json
 ├── agents/          Read-only reviewers
-├── hooks/           The function hooks that hold C# work to the skills
+├── hooks/           The function hooks that hold C# work to the skills, and the reviewer log
 ├── references/      C# mapping for DMF and functional-style guidelines, plus the contracts shared
 │                    with lowy: project profile, review findings, design directory
 ├── skills/          One folder per skill, with its own references and output templates

@@ -10,7 +10,7 @@ It holds five plugins: two for designing C# and Unity code, one that runs multi-
 
 | Plugin | What it does | Contents | Depends on |
 |---|---|---|---|
-| [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them | 5 skills, 2 agents, function hooks on C# writes, turn ends, the system prompt and `/code-review` | Nothing |
+| [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them | 5 skills, 2 agents, function hooks on C# writes, turn ends, the system prompt and `/code-review`, and a `/dmf-reviews` log of reviewer runs | Nothing |
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
 | [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises | 1 skill, 3 agents, 1 workflow | `lowy` (and through it `dmf`) |
 | [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown | Function hooks on `Bash`, `PowerShell`, `Edit`, `Write` and `NotebookEdit` calls, and on the commit and pull request attribution text | Nothing |
@@ -73,7 +73,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Dependency | Needed by | Notes |
 |---|---|---|
 | Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
-| Function hooks | `house-rules`, `dmf` (and through it `lowy` and `devflow`) | An early-access API; `house-rules` was written and tested on Claude Code 2.1.294, and the `dmf` hooks on 2.1.314 |
+| Function hooks | `house-rules`, `dmf` (and through it `lowy` and `devflow`) | An early-access API; `house-rules` was written and tested on Claude Code 2.1.294, the `dmf` hooks on 2.1.314, and their reviewer log on 2.1.317 |
 | The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
 | Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json`, which `workstation` does for you |
 

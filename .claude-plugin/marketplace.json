@@ -11,7 +11,7 @@
     {
       "name": "dmf",
       "source": "./plugins/dmf",
-      "description": "Domain Modeling Made Functional in C# for any codebase: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them."
+      "description": "Domain Modeling Made Functional in C# for any codebase: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them and log every reviewer run."
     },
     {
       "name": "lowy",

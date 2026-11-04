@@ -1,8 +1,8 @@
 {
   "name": "dmf",
   "displayName": "Domain Modeling Made Functional (C#)",
-  "version": "0.4.0",
-  "description": "Domain Modeling Made Functional in C# for any codebase: domain discovery, type-driven modeling that makes illegal states unrepresentable, Result-based workflow pipelines, DTOs and persistence, plus read-only DMF and functional-style reviewer agents. Unity-aware. Its hooks hold C# work to the skills: design and review are routed to them, a C# edit waits for an implementation skill, and a turn that changed C# runs the reviewers before it ends.",
+  "version": "0.5.0",
+  "description": "Domain Modeling Made Functional in C# for any codebase: domain discovery, type-driven modeling that makes illegal states unrepresentable, Result-based workflow pipelines, DTOs and persistence, plus read-only DMF and functional-style reviewer agents. Unity-aware. Its hooks hold C# work to the skills: design and review are routed to them, a C# edit waits for an implementation skill, and a turn that changed C# runs the reviewers before it ends. Every reviewer run is logged with its time, tokens and report, in the transcript and in a /dmf-reviews pane.",
   "author": {
     "name": "TutanDev",
     "url": "https://github.com/TutanDev"

@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register, ToolCallInput, ToolCallResult } from 'claude-code'
 
 import type { DmfReview } from '../types'
+import { REVIEWERS, registerReviewerLog } from './reviewer-log'
 
 // Holds C# work to the dmf skills instead of leaving it to whether a skill's
 // description happened to match the prompt. A standing section of the system
@@ -28,7 +29,6 @@ const IMPLEMENTATION_SKILLS = [
   'dmf:serialization-persistence',
   'dmf:orchestrator',
 ]
-const REVIEWERS = ['dmf:dmf-reviewer', 'dmf:fp-reviewer']
 
 // C# that a person writes; build output and generated code are not.
 const CSHARP = /\.cs$/i
@@ -212,4 +212,6 @@ export const register: Register = on => {
     }
     return next(e)
   })
+
+  registerReviewerLog(on)
 }
