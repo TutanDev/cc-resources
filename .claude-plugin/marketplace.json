@@ -26,7 +26,7 @@
     {
       "name": "house-rules",
       "source": "./plugins/house-rules",
-      "description": "Three writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash in anything written, and one full sentence per line of Markdown."
+      "description": "Four writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash in anything written, one full sentence per line of Markdown, and no file written from a shell heredoc or here-string."
     },
     {
       "name": "workstation",

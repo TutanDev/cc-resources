@@ -191,3 +191,65 @@ describe('one sentence per line', () => {
     expect(ran).toEqual(['Edit', 'Write'])
   })
 })
+
+describe('no file written from a heredoc or here-string', () => {
+  test('a heredoc that cat or tee passes into a file is refused', async ($, on) => {
+    const ran = engine(on)
+    const commands = [
+      "cat > notes.md <<'EOF'\nOne line.\nEOF",
+      'cat <<EOF >> log.txt\nline\nEOF',
+      'cat>"$HOME/a b.md"<<EOF\nline\nEOF',
+      "mkdir -p docs && cat > docs/match.py << 'PY'\nprint(re.match(r'\\d+', s))\nPY",
+      "tee config.json <<'EOF' > /dev/null\n{}\nEOF",
+      "cat <<'EOF' | tee -a out.txt\nx\nEOF",
+      'sudo tee /etc/x.conf <<-EOF\n\tkey=1\n\tEOF',
+    ]
+    for (const command of commands) {
+      expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toMatch(/heredoc or a here-string/)
+    }
+    expect(ran).toEqual([])
+  })
+
+  test('a here-string piped or handed to a PowerShell writer is refused', async ($, on) => {
+    const ran = engine(on)
+    const commands = [
+      "@'\nOne line.\n'@ | Set-Content -Path notes.md -Encoding utf8",
+      'Set-Content -Path notes.md -Value @"\n$x\n"@',
+      "[IO.File]::WriteAllText('a.txt', @'\nx\n'@)",
+      "@'\nx\n'@ > a.txt",
+      "@'\nx\n'@ | Out-String | Out-File a.txt -Encoding utf8",
+    ]
+    for (const command of commands) {
+      expect(refusal(await $.tool.call({ tool: 'PowerShell', command }))).toMatch(/heredoc or a here-string/)
+    }
+    expect(ran).toEqual([])
+  })
+
+  test('a heredoc that feeds a commit, a program or the output runs', async ($, on) => {
+    const ran = engine(on)
+    const commands = [
+      `git commit -m "$(cat <<'EOF'\nFix the > comparison\nEOF\n)"`,
+      "python - <<'EOF' > result.json\nprint('{}')\nEOF",
+      "cat <<'EOF' | git commit -F -\nFix\nEOF",
+      "cat <<'EOF'\nshown, not written\nEOF",
+      "cat <<'EOF' > /dev/null\nx\nEOF",
+      'echo $((1<<3)) > bits.txt',
+      "grep -c '<<EOF' notes.md > count.txt",
+      "cat <<'OUTER'\ncat > nested.md <<'EOF'\nOUTER",
+    ]
+    for (const command of commands) expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toBeUndefined()
+    expect(ran).toEqual(commands.map(() => 'Bash'))
+  })
+
+  test('a here-string that feeds a commit, a program or a variable runs', async ($, on) => {
+    const ran = engine(on)
+    const commands = [
+      "git commit -m @'\nFix the > comparison\n'@",
+      "@'\nprint(1)\n'@ | python - > out.json",
+      "$body = @'\nText\n'@\ngh pr create --title T --body $body",
+      "Set-Content -Path a.txt -Value 'one line'",
+    ]
+    for (const command of commands) expect(refusal(await $.tool.call({ tool: 'PowerShell', command }))).toBeUndefined()
+    expect(ran).toEqual(commands.map(() => 'PowerShell'))
+  })
+})

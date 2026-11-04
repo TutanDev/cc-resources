@@ -1,8 +1,9 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-// Three standing rules, held at the tool call instead of left to the model's
+// Four standing rules, held at the tool call instead of left to the model's
 // memory of them: no Claude attribution in a commit or a pull request, no em
-// dash in anything written, and one full sentence per line of Markdown.
+// dash in anything written, one full sentence per line of Markdown, and no
+// file written from a shell heredoc or here-string.
 
 const EM_DASH = String.fromCharCode(0x2014)
 
@@ -141,6 +142,107 @@ const sentenceReasons = (path: string, before: string, after: string) => {
   return [sentencesShareLinesIn(path, added.length > 0 ? added : is)]
 }
 
+// No file written from a heredoc or a here-string. The shell can mangle the
+// text's backslashes, dollar signs and regexes on the way, and Markdown
+// written this way skips the sentence check; Write takes the text as it is.
+// Only text that reaches a file as written is judged: a heredoc that `cat` or
+// `tee` passes into a file, or a here-string piped or handed to a PowerShell
+// writer. One that feeds a commit message or a program's stdin still runs.
+
+// Quoted text blanked, its quotes kept, so a redirect or an operator inside a
+// string is not read as one; offsets stay as they were.
+const blanked = (text: string) =>
+  text.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, quoted => quoted[0] + ' '.repeat(quoted.length - 2) + quoted[0])
+
+// A heredoc operator and its delimiter word: `<<EOF`, `<<-EOF`, `<< 'EOF'`.
+// A here-string (`<<<`) is none, nor a shift (`1<<3`), whose right side is no word.
+const HEREDOC = /(?<!<)<<(-?)[ \t]*(["']?)([A-Za-z_][\w.-]*)\2/g
+const PIPELINE_PART = /(\|\||&&|\$\(|[;|(){}`])/
+const PASSES_TEXT = /^\s*(?:sudo\s+)?(?:\S*\/)?(?:cat|tee)(?:\.exe)?(?![\w.-])/
+const REDIRECTS_TO_FILE = /(?<![\d&<>])(?:&>>?|>>?)\s*(?!&|\(|\/dev\/null\b)\S/
+const TEES_TO_FILE = /^\s*(?:sudo\s+)?(?:\S*\/)?tee(?:\.exe)?(?:\s+-\S+)*\s+(?!\/dev\/null\b)[^\s-]/
+
+// The stages of a blanked line's pipeline from the one holding offset `at` to
+// its end: `cat <<EOF | tee out; ls` gives `cat <<EOF ` and ` tee out`.
+const stagesFrom = (line: string, at: number) => {
+  const pieces = line.split(PIPELINE_PART)
+  const stages: string[] = []
+  let offset = 0
+  for (let index = 0; index < pieces.length; index += 2) {
+    const [stage, separator] = [pieces[index] ?? '', pieces[index + 1]]
+    offset += stage.length
+    if (stages.length > 0 || at < offset) stages.push(stage)
+    if (stages.length > 0 && separator !== '|') break
+    offset += separator?.length ?? 0
+  }
+  return stages
+}
+
+// The text goes on through `cat` and `tee` and is written by a redirect or a
+// `tee` file on the way; any other command takes it as its input.
+const heredocReachesFile = (stages: string[]) => {
+  for (const stage of stages) {
+    if (!PASSES_TEXT.test(stage)) return false
+    if (REDIRECTS_TO_FILE.test(stage) || TEES_TO_FILE.test(stage)) return true
+  }
+  return false
+}
+
+// Each heredoc is judged on the line that opens it; its body, up to the
+// delimiter line, is text and not judged.
+const writesHeredocToFile = (command: string) => {
+  let bodies: { delimiter: string; tabs: boolean }[] = []
+  for (const line of command.replace(/\r\n?/g, '\n').split('\n')) {
+    const [body, ...later] = bodies
+    if (body !== undefined) {
+      if ((body.tabs ? line.replace(/^\t+/, '') : line).trimEnd() === body.delimiter) bodies = later
+      continue
+    }
+    const shape = blanked(line)
+    for (const match of line.matchAll(HEREDOC)) {
+      const at = match.index ?? 0
+      if (shape[at] !== '<') continue
+      if (heredocReachesFile(stagesFrom(shape, at))) return true
+      bodies.push({ delimiter: match[3] ?? '', tabs: match[1] === '-' })
+    }
+  }
+  return false
+}
+
+// A here-string, `@'` ending a line to `'@` opening one, folds to an empty
+// one, so what is done with its text reads as one statement.
+const HERE_STRING = /@(['"])[ \t]*\n(?:[\s\S]*?\n)?[ \t]*\1@/g
+const FOLDED_HERE_STRING = /@(['"])\1@/
+const PS_WRITER =
+  /(?:^|\s)(?:Set-Content|Add-Content|Out-File|Tee-Object|sc|ac|tee)(?=\s|$)|\bNew-Item\b.*\s-Value\b|\[(?:System\.)?IO\.File\]::(?:Write|Append)All/i
+const PS_PASSES_TEXT = /^\s*(?:(?:Write-Output|echo|Out-String)(?=\s|$))?\s*(?:@(['"])\1@)?\s*(?:>.*)?$/i
+const PS_REDIRECTS_TO_FILE = /(?<![\d*>])>>?\s*(?!\$null\b|&)\S/
+
+const writesHereStringToFile = (command: string) =>
+  blanked(command.replace(/\r\n?/g, '\n').replace(HERE_STRING, (_, quote: string) => `@${quote}${quote}@`))
+    .split(/[;\n]/)
+    .some(statement => {
+      const stages = statement.split('|')
+      const first = stages.findIndex(stage => FOLDED_HERE_STRING.test(stage))
+      if (first < 0) return false
+      for (const stage of stages.slice(first)) {
+        if (PS_WRITER.test(stage)) return true
+        if (!PS_PASSES_TEXT.test(stage)) return false
+        if (PS_REDIRECTS_TO_FILE.test(stage)) return true
+      }
+      return false
+    })
+
+const writesFileFromShellText = (tool: string, command: string) =>
+  tool === 'PowerShell' ? writesHereStringToFile(command) : writesHeredocToFile(command)
+
+const SHELL_TEXT_TO_FILE =
+  'The command writes a file from a heredoc or a here-string. ' +
+  'The shell can mangle backslashes, dollar signs and regexes in the text on the way, ' +
+  'and Markdown written this way skips the one-sentence-per-line check. ' +
+  'Write the file with the Write tool, or change it with Edit; a heredoc or here-string ' +
+  "that feeds a commit message or a program's stdin is still fine."
+
 const failed = { deny: 'house-rules: its guard failed, so the call was refused.' }
 
 export const register: Register = on => {
@@ -150,6 +252,7 @@ export const register: Register = on => {
     const reasons = [
       ...(emDashes(e.command) > 0 ? [EM_DASH_IN_COMMAND] : []),
       ...((await carriesAttribution($, e.command)) ? [ATTRIBUTED] : []),
+      ...(writesFileFromShellText(e.tool, e.command) ? [SHELL_TEXT_TO_FILE] : []),
     ]
     return refuse(reasons) ?? next(e)
   }).catch(($, e, next) => (next.called ? next(e) : failed))
