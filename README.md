@@ -4,7 +4,7 @@
 # cc-resources
 
 TutanDev's Claude Code plugin marketplace.
-It holds five plugins: two for designing C# and Unity code, one that runs multi-agent development workflows on them, one that enforces writing rules, and one that sets up a machine.
+It holds six plugins: two for designing C# and Unity code, one that runs multi-agent development workflows on them, one that proves the product works by driving it, one that enforces writing rules, and one that sets up a machine.
 
 ## Plugin Index
 
@@ -13,6 +13,7 @@ It holds five plugins: two for designing C# and Unity code, one that runs multi-
 | [`dmf`](plugins/dmf/README.md) | Domain Modeling Made Functional in C#: domain discovery, type-driven modeling, Result-based workflow pipelines, DTOs and persistence, with DMF and functional-style reviewers, and hooks that hold C# design, implementation and review to them | 5 skills, 2 agents, function hooks on C# writes, turn ends, the system prompt and `/code-review`, and a `/dmf-reviews` log of reviewer runs | Nothing |
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
 | [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises | 1 skill, 3 agents, 1 workflow | `lowy` (and through it `dmf`) |
+| [`verification`](plugins/verification/README.md) | A project-local skill that drives the real app the way a user does and keeps the proof: launch, health check, drive, evidence, cleanup and a feature map, proven end to end before handover and kept in step with the app, with recipes for web, CLIs, services, .NET desktop apps with their own renderer, and Unity | 2 skills, 1 agent | Nothing |
 | [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown, no file written from a heredoc | Function hooks on `Bash`, `PowerShell`, `Edit`, `Write` and `NotebookEdit` calls, and on the commit and pull request attribution text | Nothing |
 | [`workstation`](plugins/workstation/README.md) | The setup for every machine: installs and enables `context7` and `serena`, sets the cc-resources status line when user settings have none, and allows the reads and writes the cc-resources workflows need | A `SessionStart` hook and the status line script | `context7` and `serena` from `claude-plugins-official` |
 
@@ -103,6 +104,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Unity Test Framework (`com.unity.test-framework`) | `lowy`'s `fitness-tests` | The generated tests are EditMode NUnit tests |
 | Mono.Cecil (`com.unity.nuget.mono-cecil`) | `lowy`'s `fitness-tests` | The skill asks before adding it; 1.11.6 works with Unity 6.3; outside Unity, the `Mono.Cecil` NuGet package |
 | A Mermaid renderer | `lowy`'s `generate-diagram` and `call-chain-validator` | Optional: diagrams are written as Mermaid text, which GitHub renders |
+| A way to drive the app | `verification` | Playwright for a web UI, a pseudo-terminal for a TUI; a .NET app with its own renderer needs a command channel and a swapchain screenshot, and Unity a project copy or a player build; the generated skill names what is missing |
 
 ### For Maintaining This Repository
 

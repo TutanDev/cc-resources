@@ -24,6 +24,11 @@
       "description": "Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises. Installs lowy and dmf as dependencies."
     },
     {
+      "name": "verification",
+      "source": "./plugins/verification",
+      "description": "A project-local skill that drives the real app the way a user does and keeps the proof: launch, health check, drive, evidence and cleanup, with a map of the app's user-facing features, proven end to end before handover and kept in step with the app. Recipes for web UIs, CLIs, HTTP services, .NET desktop apps that draw with their own renderer, and Unity."
+    },
+    {
       "name": "house-rules",
       "source": "./plugins/house-rules",
       "description": "Four writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash in anything written, one full sentence per line of Markdown, and no file written from a shell heredoc or here-string."

@@ -1,0 +1,23 @@
+{
+  "name": "verification",
+  "displayName": "Verification",
+  "version": "0.1.0",
+  "description": "Gives a project a scripted way to drive its real app the way a user does and keep the proof: a project-local verify-<app> skill that launches the app, checks it is healthy, drives it, captures evidence and cleans up, with a map of its user-facing features, proven end to end before handover and kept in step with the app. Recipes for web UIs, CLIs, HTTP services, .NET desktop apps that draw with their own renderer, and Unity.",
+  "author": {
+    "name": "TutanDev",
+    "url": "https://github.com/TutanDev"
+  },
+  "homepage": "https://github.com/TutanDev/cc-resources/tree/main/plugins/verification",
+  "repository": "https://github.com/TutanDev/cc-resources",
+  "keywords": [
+    "verification",
+    "end-to-end",
+    "e2e",
+    "feature-map",
+    "bug-reproduction",
+    "screenshots",
+    "dotnet",
+    "vulkan",
+    "unity"
+  ]
+}
