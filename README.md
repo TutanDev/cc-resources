@@ -113,9 +113,9 @@ Everything a plugin needs beyond this repository, and who needs it.
 | The Claude Code CLI | `claude plugin validate`, and `claude plugin test` on `plugins/dmf` and `plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/setup-user-settings.test.sh` |
-| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs` and `node plugins/lowy/tests/workflows.test.mjs` |
+| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs`, `node plugins/lowy/tests/workflows.test.mjs`, and `node scripts/check-docs.mjs` with its tests, which also need `git` |
 | TypeScript (`tsc`) | Optional: type-checking the function hooks with `tsc -p plugins/dmf` and `tsc -p plugins/house-rules` |
-| GitHub Actions | CI on every push: the shared-contract check, the `workstation` hook tests and the `devflow` and `lowy` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
+| GitHub Actions | CI on every push: the shared-contract check, the docs check and its tests, the `workstation` hook tests and the `devflow` and `lowy` workflow tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
 
 ## Maintaining
 
@@ -129,4 +129,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.
 - A dependency on a plugin from another marketplace needs that marketplace listed under `allowCrossMarketplaceDependenciesOn` in `.claude-plugin/marketplace.json`.
 - Bump a plugin's `version` in its `.claude-plugin/plugin.json` with every change you want its users to receive.
-- Keep the [Plugin Index](#plugin-index) and [External Dependencies](#external-dependencies) in step with the plugins.
+- Run `node scripts/check-docs.mjs` after adding, renaming or removing a skill, agent, workflow, hook, dependency, reference file or plugin; CI runs it on every push.
+  It fails when the docs drift from the tree: the plugin count, the [Plugin Index](#plugin-index) counts, hooks and dependencies, the [External Dependencies](#external-dependencies) rows the tree decides, a plugin README's Skills, Agents and Workflows tables, its Layout or a path it names, the marketplace entries, a relative link or anchor, a `<plugin>:<name>` name, or a `${CLAUDE_PLUGIN_ROOT}` path.
+- Keep the rest of the Plugin Index and External Dependencies in step by hand: what each plugin does, and what each tool, service and project dependency is for.
+- Run `node scripts/check-docs.test.mjs` after changing the docs check.

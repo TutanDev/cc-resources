@@ -11,6 +11,13 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-shared.sh
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/check-docs.mjs
+      - run: node scripts/check-docs.test.mjs
+
   workstation-hook:
     runs-on: ubuntu-latest
     steps:
