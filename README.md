@@ -112,7 +112,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 
 | Dependency | Used for |
 |---|---|
-| The Claude Code CLI | `claude plugin validate`, and `claude plugin test` on `plugins/dmf`, `plugins/devflow` and `plugins/house-rules` |
+| The Claude Code CLI | `claude plugin validate`, `claude plugin test` on `plugins/dmf`, `plugins/devflow` and `plugins/house-rules`, and `claude plugin eval` on a plugin's eval suite through `scripts/eval-plugin.sh` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/setup-user-settings.test.sh` |
 | Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs`, `node plugins/devflow/tests/check-plan.test.mjs`, `node plugins/lowy/tests/workflows.test.mjs`, `node plugins/house-rules/tests/corrections.test.mjs`, and `node scripts/check-docs.mjs` with its tests, which also need `git` |
@@ -130,6 +130,9 @@ Everything a plugin needs beyond this repository, and who needs it.
 - Run `node plugins/devflow/tests/check-plan.test.mjs` after changing the `devflow` plan contract, its template or its structure check; CI runs it on every push.
 - Run `node plugins/house-rules/tests/corrections.test.mjs` after changing `plugins/house-rules/scripts/`, the transcript reader that `correct` runs; CI runs it on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
+- Run `bash scripts/eval-plugin.sh <plugin>` after changing a skill of a plugin with an eval suite under `tests/evals/`, which only `dmf` has so far, and compare its scores with a run on `main`.
+  Each case runs with the plugin and without it, a judge model scores what the agent wrote against a rubric the agent never sees, and the agent's transcript shows whether it loaded the skill.
+  It calls a model for every run, so CI does not run it; [`plugins/dmf/README.md`](plugins/dmf/README.md#evals) says what a run costs and what it measures.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.
 - A dependency on a plugin from another marketplace needs that marketplace listed under `allowCrossMarketplaceDependenciesOn` in `.claude-plugin/marketplace.json`.
 - Bump a plugin's `version` in its `.claude-plugin/plugin.json` with every change you want its users to receive.

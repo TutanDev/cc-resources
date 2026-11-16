@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: checkout
+description: A new workflow in a codebase written in plain object-oriented C#, which dmf:workflow-implementation covers.
+tags: [workflow-implementation]
+context:
+  scaffold_script: seed.sh

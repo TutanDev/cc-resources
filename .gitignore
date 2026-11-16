@@ -5,3 +5,6 @@
 **/bin/Release/
 obj/
 TestResults/
+
+# A plugin's eval runs write their results and reports beside its cases.
+plugins/*/tests/evals/results/

@@ -10,6 +10,9 @@
   "homepage": "https://github.com/TutanDev/cc-resources/tree/main/plugins/dmf",
   "repository": "https://github.com/TutanDev/cc-resources",
   "types": "./types/index.d.ts",
+  "experimental": {
+    "evals": "tests/evals"
+  },
   "keywords": [
     "ddd",
     "domain-modeling-made-functional",
