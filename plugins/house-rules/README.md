@@ -69,9 +69,18 @@ Two rules came from the plugin's own use rather than from `CLAUDE.md`: [No File 
 Commits and pull requests carry no Claude attribution.
 
 - The commit trailer and the pull request footer that Claude Code asks the model to add are blanked at their source (`attribution.text`), so the reminder never asks.
-- As a backstop, a `git commit` or `gh pr create|edit` run through Bash or PowerShell is refused when its message holds a `Co-Authored-By` trailer naming Claude or Anthropic, or a "Generated with Claude Code" line.
+- As a backstop, a `git commit` or `gh pr create|edit` run through Bash or PowerShell is refused when its message holds a `Co-Authored-By` trailer naming Claude or Anthropic, a "Generated with Claude Code" line, or the `Claude-Session:` link that a web or Remote Control session adds.
   Heredocs, PowerShell here-strings, separate `-m` messages, escaped `\n` and message files (`-F`, `--file`, `--body-file`) are all read.
 - A command that searches for or strips an old trailer, such as `sed '/Co-Authored-By: Claude/d' | git commit --amend -F -`, still runs.
+  So does a message whose sentence names the footer, since the footer counts only where a line or an option's quoted argument starts with it.
+
+A project can turn the attribution off for every session, with this plugin or without it, in its `.claude/settings.json`:
+
+```json
+{ "attribution": { "commit": "", "pr": "", "sessionUrl": false } }
+```
+
+The hooks do not see a commit made outside a session, so a project that wants every commit held checks them in CI too, as this repository does with `scripts/check-attribution.mjs`.
 
 ### No Em Dash
 

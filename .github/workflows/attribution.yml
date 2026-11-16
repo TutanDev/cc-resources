@@ -1,0 +1,24 @@
+name: No Claude attribution
+
+# Runs on a pull request's edits too, so a fixed description clears the check.
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No commit this adds, and no pull request body, carries Claude attribution
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-attribution.mjs
+      - run: node scripts/check-attribution.test.mjs

@@ -72,6 +72,12 @@ describe('attribution', () => {
     const ran = engine(on)
     const command = 'gh pr create --title "Fix" --body "Fix\n\nGenerated with [Claude Code](https://claude.com/claude-code)"'
     expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toMatch(/attribution/)
+    const robot = 'gh pr edit 2 --body "Fix\n\n\u{1F916} Generated with [Claude Code](https://claude.com/claude-code)"'
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: robot }))).toMatch(/attribution/)
+    const own = 'git commit -m "Fix" -m "Generated with [Claude Code](https://claude.com/claude-code)"'
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: own }))).toMatch(/attribution/)
+    const assigned = "gh pr create --title Fix --body='Generated with [Claude Code](https://claude.com/claude-code)'"
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: assigned }))).toMatch(/attribution/)
     expect(ran).toEqual([])
   })
 
@@ -84,13 +90,31 @@ describe('attribution', () => {
     expect(ran).toEqual([])
   })
 
-  test('a clean commit, a search for old trailers and a commit that strips one all run', async ($, on) => {
+  // The pull request this came from: its body ended with the session link that
+  // Claude Code adds in a web or Remote Control session.
+  test('a pull request body or a commit ending with the Claude-Session link is refused', async ($, on) => {
+    const ran = engine(on)
+    const body = [
+      'With core.autocrlf=true, the marketplace clone gets CRLF files.',
+      '',
+      'Claude-Session: https://claude.ai/code/session_01AbCdEfGhIjKlMnOpQrStUv',
+    ].join('\n')
+    const pr = `gh pr create --title "Check out plugin files with LF on every platform" --body "$(cat <<'EOF'\n${body}\nEOF\n)"`
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: pr }))).toMatch(/Claude-Session/)
+    const commit = `git commit -m "Check out plugin files with LF" -m "Claude-Session: https://claude.ai/code/session_01AbCdEfGhIjKlMnOpQrStUv"`
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: commit }))).toMatch(/attribution/)
+    expect(ran).toEqual([])
+  })
+
+  test('a clean commit, a search for old trailers, a commit that strips one and one that names the footer all run', async ($, on) => {
     const ran = engine(on)
     const strip = "git log -1 --format=%B | sed '/Co-Authored-By: Claude/d' | git commit --amend -F -"
+    const names = 'git commit -F - <<\'EOF\'\nHold the footer out\n\nA session no longer ends pull requests with the "Generated with Claude Code" line.\nEOF'
     expect(refusal(await $.tool.call({ tool: 'Bash', command: 'git commit -m "Fix the thing"' }))).toBeUndefined()
     expect(refusal(await $.tool.call({ tool: 'Bash', command: `git log --grep="${TRAILER}"` }))).toBeUndefined()
     expect(refusal(await $.tool.call({ tool: 'Bash', command: strip }))).toBeUndefined()
-    expect(ran).toEqual(['Bash', 'Bash', 'Bash'])
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: names }))).toBeUndefined()
+    expect(ran).toEqual(['Bash', 'Bash', 'Bash', 'Bash'])
   })
 })
 

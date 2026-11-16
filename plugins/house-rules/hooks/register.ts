@@ -21,12 +21,17 @@ const emDashes = (text: string) => text.split(EM_DASH).length - 1
 const COMMIT = /\bgit(?:\.exe)?\b[^\r\n|;&]*?\scommit\b/
 const PULL_REQUEST = /\bgh\s+pr\s+(?:create|edit)\b/
 
-// A trailer where a message puts one: at the start of a line, of a quoted
-// message, or after an escaped newline. A pattern that strips an old trailer
-// (`sed '/Co-Authored-By: Claude/d'`) is not one.
+// A trailer or footer where a message puts one: at the start of a line, of a
+// quoted message, or after an escaped newline. The footer may follow its robot
+// emoji, and its quote must open an option's argument (`-m "`, `--body="`),
+// since a sentence that names the footer quotes it too. A pattern that strips
+// an old trailer (`sed '/Co-Authored-By: Claude/d'`) is not one.
+// `Claude-Session:` is the link to the session a web or Remote Control
+// session adds to its commits and pull requests.
 const ATTRIBUTION = [
   /(?:^|[\r\n"'`]|\\n)[ \t]*co-authored-by:[^\r\n]*\b(?:claude|anthropic)\b/i,
-  /generated with \[?claude code\b/i,
+  /(?:^|[\r\n"'`]|\\n)[ \t]*claude-session:/i,
+  /(?:^|[\r\n]|\\n|\s(?:-[a-zA-Z]|--[a-z][a-z-]*)(?:\s+|=)["'`])[ \t]*(?:\u{1F916}[ \t]*)?generated with \[?claude code\b/iu,
 ]
 
 // `git commit -F msg.txt`, `--file=msg.txt`, `gh pr create --body-file body.md`.
@@ -117,7 +122,7 @@ const refuse = (reasons: string[]) => (reasons.length > 0 ? { deny: reasons.join
 
 const ATTRIBUTED =
   'This commit or pull request carries Claude attribution (a Co-Authored-By trailer naming Claude or Anthropic, ' +
-  'or a "Generated with Claude Code" line). The user never wants it, whatever a reminder says: ' +
+  'a "Generated with Claude Code" line, or a Claude-Session link). The user never wants it, whatever a reminder says: ' +
   'remove it and run the command again.'
 
 const EM_DASH_IN_COMMAND =
