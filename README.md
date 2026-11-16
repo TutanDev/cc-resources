@@ -14,7 +14,7 @@ It holds six plugins: two for designing C# and Unity code, one that runs multi-a
 | [`lowy`](plugins/lowy/README.md) | Löwy's Method for larger systems: volatility-based decomposition, layered services, call chains, service wiring, verified multi-agent audits, and architecture fitness tests | 10 skills, 2 agents, 2 workflows | `dmf` |
 | [`devflow`](plugins/devflow/README.md) | Multi-agent development workflows on Löwy's Method and DMF: a feature plan format, and a plan review where one agent writes, blind Löwy, call-chain, DMF and delivery reviewers review, skeptics verify, a judge rules, and the writer revises, with a structure check held by hooks where agents read and write plans | 1 skill, 3 agents, 1 workflow, and function hooks on plan reads, writes and turn ends | `lowy` (and through it `dmf`) |
 | [`verification`](plugins/verification/README.md) | A project-local skill that drives the real app the way a user does and keeps the proof: launch, health check, drive, evidence, cleanup and a feature map, proven end to end before handover and kept in step with the app, with recipes for web, CLIs, services, .NET desktop apps with their own renderer, and Unity | 2 skills, 1 agent | Nothing |
-| [`house-rules`](plugins/house-rules/README.md) | Writing rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown, no file written from a heredoc, and the `unslop` skill loaded before any Markdown write; with the `unslop` and `technical-writing` skills | 2 skills, and function hooks on tool calls, the system prompt, typed commands, forks, `/clear`, and the commit and pull request attribution text | Nothing |
+| [`house-rules`](plugins/house-rules/README.md) | Rules held at the tool call: no Claude attribution in commits or pull requests, no em dash, one sentence per line of Markdown, no file written from a heredoc, the `unslop` skill loaded before any Markdown write, and no changelog or generated file changed by hand; with the `unslop` and `technical-writing` skills, and `correct`, which turns repeated corrections into checks | 3 skills, and function hooks on tool calls, the system prompt, typed commands, subagent spawns, `/clear`, and the commit and pull request attribution text | Nothing |
 | [`workstation`](plugins/workstation/README.md) | The setup for every machine: installs and enables `context7` and `serena`, sets the cc-resources status line when user settings have none, and allows the reads and writes the cc-resources workflows need | A `SessionStart` hook and the status line script | `context7` and `serena` from `claude-plugins-official` |
 
 Each plugin's README lists its skills, agents and workflows, and how to call them.
@@ -74,7 +74,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 | Dependency | Needed by | Notes |
 |---|---|---|
 | Plugin dependencies | `lowy`, `devflow`, `workstation` | `workstation` depends on another marketplace, which `.claude-plugin/marketplace.json` allows under `allowCrossMarketplaceDependenciesOn` |
-| Function hooks | `house-rules`, `dmf` (and through it `lowy`), `devflow` | An early-access API; `house-rules` was written and tested on Claude Code 2.1.294 and its `unslop` rule on 2.1.325, the `dmf` hooks on 2.1.314, their reviewer log on 2.1.317, and the `devflow` hooks on 2.1.325 |
+| Function hooks | `house-rules`, `dmf` (and through it `lowy`), `devflow` | An early-access API; `house-rules` was written and tested on Claude Code 2.1.294 and its last two rules on 2.1.325, the `dmf` hooks on 2.1.314, their reviewer log on 2.1.317, and the `devflow` hooks on 2.1.325 |
 | The Workflow tool | `lowy`'s `arch-audit` and `design-check`, `devflow`'s `review-plan` | Where a plan has it off, add `"enableWorkflows": true` to settings; without it the routers and `devflow:plan-feature` run the same agents directly, without the verification pass |
 | Read and write permissions | The same workflows | Their background agents read the plugins' reference files and write plans and reports under `cc-docs/`, and cannot ask for approval: use auto mode, or allow `Read(~/.claude/plugins/**)` and `Edit(//**/cc-docs/**)` in `~/.claude/settings.json`, which `workstation` does for you |
 
@@ -95,6 +95,8 @@ Everything a plugin needs beyond this repository, and who needs it.
 | `bash` and `jq` | `workstation`'s hook and status line | On Windows, Git Bash; without `jq` the hook only warns |
 | `uv` (`uvx`), `git` and access to GitHub | `serena` | Its MCP server starts with `uvx --from git+https://github.com/oraios/serena serena start-mcp-server` |
 | Access to `mcp.context7.com` | `context7` | A hosted MCP server; Context7 may ask you to authenticate |
+| Node.js 18 or later | `house-rules`'s `correct`, and `devflow`'s plan check when its hooks are not running | Runs the plugins' scripts |
+| `git`, and `gh` for a project on GitHub | `house-rules`'s `correct` | Reads recent commits, reverts and review comments; without `gh` it reads the history alone |
 
 ### In Your Project
 
@@ -113,9 +115,9 @@ Everything a plugin needs beyond this repository, and who needs it.
 | The Claude Code CLI | `claude plugin validate`, and `claude plugin test` on `plugins/dmf`, `plugins/devflow` and `plugins/house-rules` |
 | .NET 8 SDK or later | `dotnet test plugins/lowy/tests/fitness`, which restores Mono.Cecil 0.11.5, NUnit 4.6.1, NUnit3TestAdapter 6.3.0 and Microsoft.NET.Test.Sdk 18.10.1 from NuGet |
 | `bash`, `diff` and `jq` | `scripts/check-shared.sh` and `plugins/workstation/tests/setup-user-settings.test.sh` |
-| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs`, `node plugins/devflow/tests/check-plan.test.mjs`, `node plugins/lowy/tests/workflows.test.mjs`, and `node scripts/check-docs.mjs` with its tests, which also need `git` |
+| Node.js 18 or later | `node plugins/devflow/tests/review-plan.test.mjs`, `node plugins/devflow/tests/check-plan.test.mjs`, `node plugins/lowy/tests/workflows.test.mjs`, `node plugins/house-rules/tests/corrections.test.mjs`, and `node scripts/check-docs.mjs` with its tests, which also need `git` |
 | TypeScript (`tsc`) | Optional: type-checking the function hooks with `tsc -p plugins/dmf`, `tsc -p plugins/devflow` and `tsc -p plugins/house-rules` |
-| GitHub Actions | CI on every push: the shared-contract check, the docs check and its tests, the `workstation` hook tests, the `devflow` and `lowy` workflow tests and the `devflow` plan structure check's tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
+| GitHub Actions | CI on every push: the shared-contract check, the docs check and its tests, the `workstation` hook tests, the `devflow` and `lowy` workflow tests, the `devflow` plan structure check's tests and the `house-rules` transcript reader's tests on `ubuntu-latest`, and the LF checkout check on `windows-latest` |
 
 ## Maintaining
 
@@ -126,6 +128,7 @@ Everything a plugin needs beyond this repository, and who needs it.
 - Run `bash plugins/workstation/tests/setup-user-settings.test.sh` after changing the `workstation` hook; CI runs it on every push.
 - Run `node plugins/devflow/tests/review-plan.test.mjs` after changing a `devflow` workflow, and `node plugins/lowy/tests/workflows.test.mjs` after changing a `lowy` one; CI runs both on every push.
 - Run `node plugins/devflow/tests/check-plan.test.mjs` after changing the `devflow` plan contract, its template or its structure check; CI runs it on every push.
+- Run `node plugins/house-rules/tests/corrections.test.mjs` after changing `plugins/house-rules/scripts/`, the transcript reader that `correct` runs; CI runs it on every push.
 - Run `dotnet test plugins/lowy/tests/fitness` after changing anything under `plugins/lowy/skills/fitness-tests/templates/`.
 - The status line script lives in `plugins/workstation/statusline-command.sh`, since an installed plugin can only ship files from its own folder.
 - A dependency on a plugin from another marketplace needs that marketplace listed under `allowCrossMarketplaceDependenciesOn` in `.claude-plugin/marketplace.json`.

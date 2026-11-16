@@ -31,6 +31,7 @@ jobs:
       - run: node plugins/devflow/tests/review-plan.test.mjs
       - run: node plugins/devflow/tests/check-plan.test.mjs
       - run: node plugins/lowy/tests/workflows.test.mjs
+      - run: node plugins/house-rules/tests/corrections.test.mjs
 
   lf-checkout:
     # Git for Windows defaults to core.autocrlf=true; plugin files must still check out with LF.

@@ -7,11 +7,16 @@ which is distributed under the MIT License below.
   that the author kept.
 - skills/technical-writing/SKILL.md adapts
   pstack/skills/technical-writing/SKILL.md.
+- skills/correct/SKILL.md adapts pstack/skills/correct/SKILL.md, and its
+  rule against reading another project's transcripts comes from
+  pstack/skills/reflect/SKILL.md.
 
 New here: rule 14 is left out of unslop, rule 13 follows the author's own
 rule on dashes, rule 17 keeps the heading case a document set already uses,
 and the hooks that send prose to the skills and hold a Markdown write until
-unslop is loaded.
+unslop is loaded. In correct, the levels name the author's own checks, the
+person picks the classes before anything changes, and the transcript reader
+in scripts/ is new.
 
 MIT License
 

@@ -3,10 +3,11 @@ import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
 
 import type { UnsloppedAgents } from '../types'
 
-// Four standing rules, held at the tool call instead of left to the model's
-// memory of them: no Claude attribution in a commit or a pull request, no em
-// dash in anything written, one full sentence per line of Markdown, and no
-// file written from a shell heredoc or here-string. Beside them, the writing
+// Standing rules, held at the tool call instead of left to the model's memory
+// of them: no Claude attribution in a commit or a pull request, no em dash in
+// anything written, one full sentence per line of Markdown, no file written
+// from a shell heredoc or here-string, and no changelog or generated file
+// changed by hand. Beside them, the writing
 // skills: a standing section of the system prompt, or a note at the end of a
 // subagent's task, sends prose a person reads to them, and a Markdown write is
 // refused until the agent making it has loaded `house-rules:unslop`.
@@ -249,6 +250,46 @@ const SHELL_TEXT_TO_FILE =
   'Write the file with the Write tool, or change it with Edit; a heredoc or here-string ' +
   "that feeds a commit message or a program's stdin is still fine."
 
+// Files not changed by hand: a changelog, which release tooling or the person
+// writes, and a file whose opening lines mark it as generated, which changes
+// through its source and its generator. A Write of a whole generated file
+// goes through, since that is how a skill regenerates one from its template.
+const CHANGELOG = /(?:^|[\\/])change-?log(?:\.(?:md|mdx|markdown|txt|rst|adoc))?$/i
+const HEAD_LINES = 10
+
+// A template is what a generator reads, so it carries the header its output
+// will have and is still edited by hand. So is a file of comments alone: the
+// header a generator stamps on what it writes.
+const TEMPLATE = /\.(?:template|tmpl|tpl|tt|t4|hbs|handlebars|mustache|j2|jinja2?|liquid|ejs|scriban|sbn)$/i
+
+// A marker sits in a comment among a file's opening lines; a generator's own
+// source names the same words further down, in its code.
+const COMMENT = /^\s*(?:\/\/|\/\*|\*|#|<!--|--|;|'|"""|\(\*|rem\b|::)/i
+const GENERATED = [
+  /<auto-?generated\b/i,
+  /(?:^|[^\w@])@generated\b/,
+  /\bgenerated\b.*\bdo not edit\b|\bdo not edit\b.*\bgenerated\b/i,
+  /^\W*(?:auto-?)?generated (?:from|by)\b/i,
+  /\b(?:this|the) (?:file|code) (?:is|was|has been) (?:auto-?|automatically )?generated\b/i,
+]
+
+const onlyComments = (text: string) => text.split(/\r?\n/).every(line => line.trim() === '' || COMMENT.test(line))
+
+const generatedMarker = (text: string) =>
+  text
+    .split(/\r?\n/, HEAD_LINES)
+    .map((line, index) => ({ line: index + 1, text: line.trim() }))
+    .find(({ text: line }) => COMMENT.test(line) && GENERATED.some(rule => rule.test(line)))
+
+const changelogByHand = (path: string) =>
+  `house-rules: ${path} is a changelog, and a changelog is not changed by hand. ` +
+  'Leave it to the release tooling or the person: say what changed in the commit message, or give the entry in your reply.'
+
+const generatedByHand = (path: string, marker: { line: number; text: string }) =>
+  `house-rules: ${path} is marked as generated (line ${marker.line}: ${marker.text.slice(0, 160)}), so it is not edited by hand. ` +
+  'Change what it is generated from and run its generator, as its header says. ' +
+  'When a skill you follow generates this file, write the whole file again from its template.'
+
 // The writing skills. An agent loads unslop with the Skill tool or as a typed
 // command; one with no Skill tool, such as a plan writer, reads its file. A
 // fork carries what its parent loaded, and a /clear unloads it.
@@ -370,11 +411,16 @@ export const register: Register = on => {
     return refuse(reasons) ?? next(e)
   }).catch(($, e, next) => (next.called ? next(e) : failed))
 
+  // A file not changed by hand is refused alone: nothing else about the
+  // change matters until it goes another way.
   on('tool.call', { tool: 'Edit' }, async ($, e, next) => {
+    if (CHANGELOG.test(e.file_path)) return { deny: changelogByHand(e.file_path) }
+    const before = await readOrEmpty($, e.file_path)
+    const marker = TEMPLATE.test(e.file_path) || onlyComments(before) ? undefined : generatedMarker(before)
+    if (marker !== undefined) return { deny: generatedByHand(e.file_path, marker) }
     const reasons = [...(emDashes(e.new_string) > emDashes(e.old_string) ? [emDashAddedTo(e.file_path)] : [])]
     if (MARKDOWN.test(e.file_path)) {
       if (!(await hasUnslop($, e))) reasons.unshift(notUnslopped(e.file_path, unslopFile($)))
-      const before = await readOrEmpty($, e.file_path)
       const after = edited(before, e.old_string, e.new_string, e.replace_all)
       reasons.push(
         ...(after === undefined
@@ -386,6 +432,7 @@ export const register: Register = on => {
   }).catch(($, e, next) => (next.called ? next(e) : failed))
 
   on('tool.call', { tool: 'Write' }, async ($, e, next) => {
+    if (CHANGELOG.test(e.file_path)) return { deny: changelogByHand(e.file_path) }
     const before = await readOrEmpty($, e.file_path)
     const markdown = MARKDOWN.test(e.file_path)
     const reasons = [

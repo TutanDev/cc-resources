@@ -1,12 +1,13 @@
 # house-rules
 
-A Claude Code plugin that holds four writing rules at the tool call instead of leaving them to the model's memory, and carries two writing skills, `unslop` and `technical-writing`.
+A Claude Code plugin that holds six rules at the tool call instead of leaving them to the model's memory, and carries three skills.
 A rule written in `CLAUDE.md` loses whenever a system reminder or an old habit says otherwise.
 A hook does not: the call is refused, and the refusal tells the model what to fix.
-The skills cover what a hook cannot judge, such as filler, hedging and AI vocabulary, and a fifth rule makes an agent load `unslop` before it writes Markdown.
+Two of the skills, `unslop` and `technical-writing`, cover what a hook cannot judge in prose, such as filler, hedging and AI vocabulary.
+The third, `correct`, finds the mistakes agents keep repeating in a project and fixes each at the highest level that works, a hook like these among them.
 
 It is built on function hooks, an early-access Claude Code API.
-The first four rules were written and tested on Claude Code 2.1.294, and the fifth on 2.1.325.
+The first four rules were written and tested on Claude Code 2.1.294, and the last two on 2.1.325.
 
 ## Install
 
@@ -25,8 +26,9 @@ Then run `/reload-plugins` or start a new session.
 |---|---|
 | `unslop` | Cuts AI tells from prose a person reads and gives it a voice: numbered patterns from AI vocabulary and filler to mannered prose and over-compression, and a section on adding soul |
 | `technical-writing` | A layered standard for documentation, pull request descriptions and commit messages: Diátaxis modes, Google developer style sentences, Simplified Technical English instructions and Global English syntax |
+| `correct` | Finds the corrections the person keeps repeating in a project, groups them into classes, and fixes each picked class at the highest level that works: architecture, types, a check whose error names the fix, a test, and docs last |
 
-The model loads them when it writes prose, and you can type either one, as `/house-rules:unslop` or `/house-rules:technical-writing`.
+The model loads the two writing skills when it writes prose, and you can type either one, as `/house-rules:unslop` or `/house-rules:technical-writing`.
 `unslop`'s rule numbers match those of the list it was ported from, so a removed rule leaves a gap.
 Three rules differ from that list:
 
@@ -34,7 +36,31 @@ Three rules differ from that list:
 - Rule 13 allows a plain hyphen with a space on each side where a dash reads best, as the em dash rule below says.
 - Rule 17 keeps the heading case a set of documents already uses, so a set in title case stays in title case.
 
-Both skills adapt text from pstack, by Lauren Tan, under the MIT License, and [`NOTICE`](NOTICE) says which.
+`correct` runs only when you type `/house-rules:correct`.
+It reads the project's recent commits, reverts and review comments, and what you said to agents in the project's own transcripts, through `scripts/list-corrections.mjs`.
+It never reads another project's transcripts.
+It proposes the classes it found, with their evidence and the level it would fix each at, and changes nothing until you pick.
+Each check it adds must refuse a real past mistake before it counts as done.
+
+All three skills adapt text from pstack, by Lauren Tan, under the MIT License, and [`NOTICE`](NOTICE) says which.
+
+## Rule Table
+
+These are the rules the plugin was built for, from its author's global `CLAUDE.md`, each paired with what holds it.
+A rule nothing holds yet says so, and `correct` is how one gets an enforcer.
+
+| Rule | Held by |
+|---|---|
+| No agent named as a co-author of a commit or a pull request | [No Claude Attribution](#no-claude-attribution) |
+| No em dash; a plain dash takes its place | [No Em Dash](#no-em-dash), and `unslop` rule 13 |
+| Each full sentence of Markdown on its own line | [One Sentence per Line](#one-sentence-per-line) |
+| No `CHANGELOG.md` or file marked as generated changed by hand | [Not by Hand](#not-by-hand) |
+| Prefer quality, simplicity, robustness, scalability and maintainability over development cost | Nothing: a judgment call, held by `CLAUDE.md` alone |
+| A bug fix starts by reproducing the bug end to end, as a user would meet it | Nothing yet; the `verification` plugin gives a project the skill to drive it |
+| End-to-end testing is picky about the UI, down to the pixel | Nothing: a judgment call |
+| Lint, test failures and flaky tests get fixed, even when unrelated | A project's CI, where it runs them; nothing in the session |
+
+Two rules came from the plugin's own use rather than from `CLAUDE.md`: [No File Written from a Heredoc](#no-file-written-from-a-heredoc) and [Unslop Before Markdown](#unslop-before-markdown).
 
 ## The Rules
 
@@ -93,6 +119,23 @@ An agent loads `unslop` before it writes Markdown (`.md`, `.mdx`, `.markdown`).
 - Each agent loads the skill for itself.
   A fork carries what its parent loaded (`agent.spawn`), and a `/clear` unloads it (`session.end`).
 
+### Not by Hand
+
+A changelog, or a file marked as generated, is not changed by hand.
+
+- A Write or Edit of a changelog (`CHANGELOG.md`, `changelog`, `Change-Log.txt` and the like) is refused.
+  The refusal sends the entry to the release tooling or to the person: in the commit message, or in the reply.
+- An Edit of a file marked as generated is refused.
+  A marker is a comment among the file's first 10 lines that holds `<auto-generated>`, `@generated`, "generated" with "do not edit", a line that opens "Generated from" or "Generated by", or "this file was generated".
+  The refusal quotes the marker and says to change what the file is generated from and run its generator.
+- A Write of a whole generated file goes through, since that is how a skill such as `/lowy:fitness-tests` regenerates one from its template.
+- A template (`.template`, `.tmpl`, `.hbs`, `.j2` and the like) carries the header of the file it makes, and is still edited by hand.
+  So is a file of comments alone, such as the header a generator stamps on what it writes.
+- Either refusal comes alone, since nothing else about the change matters until it goes another way.
+
+The rule was proven on a real mistake: an agent that added a release to a Unity package's `CHANGELOG.md` by hand, em dashes and all, because the package's own `CLAUDE.md` asked it to.
+Its markers were checked against every tracked file of the author's repositories, 2,811 of them: they mark the 140 generated files and nothing else.
+
 ## Limits
 
 - Files written through MCP tools are not checked.
@@ -102,15 +145,17 @@ An agent loads `unslop` before it writes Markdown (`.md`, `.mdx`, `.markdown`).
 - A message file the guard cannot read, such as a relative path after the shell changed directory, is judged on the command's text alone.
 - The hooks check that an agent loaded `unslop`, not that its text follows the skill.
   A commit message, a pull request body or a reply is sent to the skills by the system prompt alone, and a Markdown file written through a shell command is not held to the load.
+- A changelog or generated file changed by a shell command (`sed -i`, `echo >>`) is not seen, and a generated file whose marker is not in a comment among its first 10 lines is not known as one.
 
 ## Layout
 
 ```
 house-rules/
 ├── .claude-plugin/plugin.json
-├── hooks/           The function hooks that hold the five rules
-├── skills/          unslop and technical-writing
-├── tests/           The hooks' tests
+├── hooks/           The function hooks that hold the six rules
+├── skills/          unslop, technical-writing and correct
+├── scripts/         The transcript reader correct runs, and its pure core
+├── tests/           The hooks' tests, and the transcript reader's
 ├── types/           The session value the hooks keep, as a typed contract
 └── NOTICE           The MIT notice for the text the skills adapt from pstack
 ```
@@ -122,6 +167,7 @@ Run the tests and the validator from the repository root:
 ```
 claude plugin test plugins/house-rules
 claude plugin validate plugins/house-rules
+node plugins/house-rules/tests/corrections.test.mjs
 ```
 
 To try a change live, load the folder for one session with `claude --plugin-dir plugins/house-rules`; saving a file reloads the hooks.
