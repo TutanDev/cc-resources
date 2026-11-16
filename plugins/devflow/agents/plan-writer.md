@@ -43,7 +43,9 @@ Every agent that reviews or builds the plan reads all of it, so each line costs 
 
 ## Mode: Draft
 
-The caller gives you a brief (the request, the user's answers, constraints), the feature name and the date.
+The caller gives you a brief (the request as the user gave it, the restatement of its goal that the user confirmed or corrected, the user's answers, constraints), the feature name and the date.
+§1 starts from the restatement: where it and the request differ, the restatement wins, since the user confirmed it.
+A restatement marked unconfirmed is an assumption: list it under Assumptions in §8.
 
 1. **Locate:** list `cc-docs/plans/`; if a plan for this feature exists, stop and say so, unless the caller asked you to replace it.
 2. **Read the system as it is:** docs are claims, and the code is the evidence.

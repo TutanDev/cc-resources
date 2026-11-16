@@ -42,15 +42,21 @@ If `.claude/docs/` exists and `cc-docs/` does not, the documents are from an ear
 ## Phase 1: Clarify
 
 Read enough of the code and the design directory to know what they already answer: the services the feature touches, the domain types, the tests.
+Then restate the request in your own words, in two to four sentences: the user's goal, the problem the feature solves for them, and the smallest change you expect to meet it.
+A misunderstanding caught here costs one answer; caught after a review round, it costs the round.
+If what you read rules out the change the user asked for, show the evidence and settle the direction with the user before anything else.
+
 Then ask the user only what changes the plan and the code cannot answer: behavior at the edges (failures, limits), the scope boundary, and constraints (platforms, performance, compatibility, persisted data).
-Ask at most four questions, in one round, with the AskUserQuestion tool when it is available, each with options and your recommendation; include the feature name.
-When you cannot ask (a non-interactive run), do not stop: list the questions in the brief as unresolved, and the writer records them as open questions.
+Ask in one round, with the AskUserQuestion tool when it is available.
+The first question holds your restatement and the feature name, and asks whether both are right, with "Yes" as the recommended option; the user may see only the question dialog, so the restatement goes in the question's own text.
+At most three questions follow it, each with options and your recommendation.
+When you cannot ask (a non-interactive run), do not stop: put the restatement in the brief as unconfirmed, list the questions as unresolved, and the writer records them as open questions.
 
 ## Phase 2: Draft
 
 Delegate to the `devflow:plan-writer` agent in Draft mode with:
 
-- the brief: the request as the user gave it, their answers, the unresolved questions, and the constraints you found;
+- the brief: the request as the user gave it, word for word; your restatement, as the user confirmed or corrected it; their answers; the unresolved questions; and the constraints you found;
 - where the relevant code and design files are;
 - the feature name and today's date (`date +%F`, or `Get-Date -Format yyyy-MM-dd`).
 

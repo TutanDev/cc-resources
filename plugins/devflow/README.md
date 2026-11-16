@@ -25,7 +25,7 @@ Then run `/reload-plugins` or start a new session.
 
 | Skill | Role |
 |---|---|
-| `plan-feature` | Entry point: clarifies the request with you, has the writer draft the plan, runs the review, then takes your answers and approval |
+| `plan-feature` | Entry point: restates the request in its own words for you to confirm, asks what the code cannot answer, has the writer draft the plan, runs the review, then takes your answers and approval |
 
 ## Agents
 
