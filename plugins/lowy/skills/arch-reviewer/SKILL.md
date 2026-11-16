@@ -14,6 +14,10 @@ For a multi-lens audit with adversarial verification (Löwy, call chains, DMF, f
 Findings follow `${CLAUDE_PLUGIN_ROOT}/references/review-findings.md`.
 When the Agent tool is not available (for example inside a subagent), do each delegated phase yourself with the skill named in its fallback line.
 
+Before Phase 0, open the todo list with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are the headings of the four phases below, copied word for word and in order, before any item of your own.
+A phase you do not run stays in the list, marked `skip: <one-line reason>`; never remove one.
+
 ## Phase 0: Scope
 If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 

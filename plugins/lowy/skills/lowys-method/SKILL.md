@@ -39,6 +39,22 @@ Downstream phases consume upstream files. Verify the required input files exist 
 
 **Project profile:** If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLAUDE_PLUGIN_ROOT}/references/project-profile.md`.
 
+## Todo List
+
+When you route to phase skills yourself, open the todo list before the first one, with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are these five, copied word for word, before any item of your own:
+
+1. Decompose: `lowy:list-volatilities` writes `02-volatilities.md`, then checkpoint.
+2. Structure: `lowy:classify-structure` writes `03-layered-architecture.md`, then checkpoint.
+3. Validate: `lowy:validate-use-cases` writes `05-call-chains.md`, then checkpoint.
+4. Wire: `lowy:wire-services` writes `07-service-wiring.md`, then checkpoint.
+5. Diagrams: `lowy:generate-diagram` draws the architecture and the call chains.
+
+A phase this request does not run stays in the list, marked `skip: <one-line reason>`, such as `skip: 03-layered-architecture.md exists and is not stale` or `skip: one subsystem, synchronous calls only`.
+Never remove an item: the list is where a skipped phase shows.
+A phase is done when its file is written and the user has confirmed its checkpoint.
+A composite skill or a workflow you route to keeps its own list instead.
+
 ## Multi-Phase Workflows
 
 Some requests span multiple phases. Composite skills and workflows handle the common sequences; invoke them instead of re-implementing their steps:

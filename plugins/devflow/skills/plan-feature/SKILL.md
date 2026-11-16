@@ -24,6 +24,10 @@ When a write is refused, yours or the writer's (it replies `Not written:`), stop
 Never mark a plan approved without the user's explicit approval in this conversation.
 When the Agent tool is not available (for example inside a subagent), do each role yourself, in order, following its agent file in `${CLAUDE_PLUGIN_ROOT}/agents/`.
 
+Before Phase 0, open the todo list with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are the headings of the five phases below, copied word for word and in order, before any item of your own.
+A phase you do not run stays in the list, marked `skip: <one-line reason>`, such as `skip: the draft exists` for Phases 1 and 2 when Phase 0 finds a draft plan; never remove one.
+
 ## Phase 0: Find the Plan
 
 List `cc-docs/plans/`.

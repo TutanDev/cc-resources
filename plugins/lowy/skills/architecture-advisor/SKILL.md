@@ -65,6 +65,25 @@ Each phase produces a numbered markdown file in `cc-docs/design/<topic>/`. The n
 | 7. Wire | Löwy | `lowy:wire-services` | `07-service-wiring.md` | `03`, `04`, `05` |
 | 8. Bridge | DMF | `dmf:serialization-persistence` | `08-serialization-bridge.md` | `04`, `06`, `07` |
 
+### Todo List
+
+When this skill runs design phases itself, open the todo list before the first one, with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are these eight, copied word for word, before any item of your own:
+
+1. Understand: `dmf:domain-discovery` writes `01-domain-discovery.md`, then checkpoint.
+2. Decompose: `lowy:list-volatilities` writes `02-volatilities.md`, then checkpoint.
+3. Structure: `lowy:classify-structure` writes `03-layered-architecture.md`, then checkpoint.
+4. Model Internals: `dmf:domain-modeling` writes `04-domain-model.md`, then checkpoint.
+5. Validate: `lowy:validate-use-cases` writes `05-call-chains.md`, then checkpoint.
+6. Implement: `dmf:workflow-implementation` writes `06-workflow-pipelines.md`, then checkpoint.
+7. Wire: `lowy:wire-services` writes `07-service-wiring.md`, then checkpoint.
+8. Bridge: `dmf:serialization-persistence` writes `08-serialization-bridge.md`, then checkpoint.
+
+A phase this request does not run stays in the list, marked `skip: <one-line reason>`, such as `skip: 02-volatilities.md exists and is not stale` or `skip: the user asked to decompose only`.
+Never remove an item: the list is where a skipped phase shows.
+A phase is done when its file is written and the user has confirmed its checkpoint.
+When you route to another orchestrator, a composite or a workflow instead, that one keeps the list.
+
 Löwy phases use `01` and `04` when present and fall back to the user's input when not.
 DMF phases use `03`, `05` and `07` when present and fall back to `01` and the earlier DMF files when not.
 Phases 4 and 5 can run in parallel (both consume Phase 3 but not each other).

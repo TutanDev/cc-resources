@@ -113,6 +113,7 @@ When those files exist, the DMF phases use them: types organized per service, wo
 Without them, each phase organizes its output by bounded context and says so.
 
 Every phase checkpoints with you before moving on.
+The orchestrator opens a todo list with all four phases first, and a phase it does not run stays there with the reason, so none is skipped silently.
 Run only the phases you need: the orchestrator routes to the phase you ask for, checks that its input files exist, and flags files that are stale because an input changed after them.
 `references/design-directory.md` defines the directory, the numbering, and staleness.
 

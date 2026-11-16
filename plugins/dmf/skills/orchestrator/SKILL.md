@@ -38,6 +38,21 @@ Determine the user's intent, then invoke the matching skill:
 | Creating DTOs, serialization, persistence, bridging domain types to infrastructure | `dmf:serialization-persistence` | User has working domain logic and needs to connect it to APIs, databases, queues, or external systems. |
 | Reviewing existing code or a `04-domain-model.md` against DMF | `dmf:dmf-reviewer` agent | Code or a model exists; the user wants findings, not a new design. For functional style (purity, mutation) add the `dmf:fp-reviewer` agent. |
 
+## Todo List
+
+When the request runs one phase or more, open the todo list before the first one, with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are these four, copied word for word, before any item of your own:
+
+1. Discovery: `dmf:domain-discovery` writes `01-domain-discovery.md`, then checkpoint.
+2. Types: `dmf:domain-modeling` writes `04-domain-model.md`, then checkpoint.
+3. Workflows: `dmf:workflow-implementation` writes `06-workflow-pipelines.md`, then checkpoint.
+4. Bridge: `dmf:serialization-persistence` writes `08-serialization-bridge.md`, then checkpoint.
+
+A phase this request does not run stays in the list, marked `skip: <one-line reason>`, such as `skip: 01-domain-discovery.md exists and is not stale` or `skip: the user asked for the types only`.
+Never remove an item: the list is where a skipped phase shows.
+A phase is done when its file is written and the user has confirmed its checkpoint.
+A review is not a phase: routing to a reviewer opens no list.
+
 ## Phase Dependencies
 
 The phases form a strict pipeline. Each phase consumes the output of the previous one:
@@ -76,6 +91,7 @@ Code defaults to C#: every phase follows `${CLAUDE_PLUGIN_ROOT}/references/cshar
 1. State which numbered file is missing.
 2. Ask whether they want to produce it first (recommended) or provide it themselves.
 3. Do NOT skip phases silently - the output quality degrades severely without proper inputs.
+   A phase the user chooses to skip stays in the todo list with its reason.
 
 ## Multi-Phase Workflows
 

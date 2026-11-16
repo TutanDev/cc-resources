@@ -115,6 +115,7 @@ Each phase writes a numbered file to `cc-docs/design/<topic>/` in your project, 
 ```
 
 Every phase checkpoints with you before moving on.
+The orchestrators and composites open a todo list with their phases first, and a phase they do not run stays there with the reason, so none is skipped silently.
 Run only the phases you need; the orchestrators detect which files exist, start at the right phase, and flag files that are stale because an input changed after them.
 Reviews from `arch-reviewer`, `arch-audit` and `design-check` go to `cc-docs/reviews/`, in the shape defined by `references/review-findings.md`.
 `references/artifact-pipeline.md` is the authoritative map of which file feeds which; `references/design-directory.md` defines the directory, the numbering shared with `dmf`, and staleness.

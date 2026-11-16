@@ -15,6 +15,10 @@ If `cc-docs/architecture.md` exists, read it and apply it as described in `${CLA
 Follow these phases in order, confirming with the user before advancing to each next phase.
 Phase numbers match the numbered files they produce.
 
+Before Phase 1, open the todo list with the TodoWrite or TaskCreate tool, whichever this session has; without either, show the list in your first reply.
+Its first items are the headings of the sections below, from Phase 1 to Final Check, copied word for word and in order, before any item of your own.
+A section you do not run stays in the list, marked `skip: <one-line reason>`, such as `skip: one subsystem, synchronous calls only` for Phase 7; never remove one.
+
 ## Phase 1: Domain Context (optional)
 If `01-domain-discovery.md` exists, use it.
 Otherwise ask whether to run `dmf:domain-discovery` first (recommended when the domain is unfamiliar) or to proceed from the requirements alone.
