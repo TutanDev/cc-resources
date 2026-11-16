@@ -1,9 +1,15 @@
-import type { EngineInterface, Register } from 'claude-code'
+import { atom, read, update } from 'claude-code'
+import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
+
+import type { UnsloppedAgents } from '../types'
 
 // Four standing rules, held at the tool call instead of left to the model's
 // memory of them: no Claude attribution in a commit or a pull request, no em
 // dash in anything written, one full sentence per line of Markdown, and no
-// file written from a shell heredoc or here-string.
+// file written from a shell heredoc or here-string. Beside them, the writing
+// skills: a standing section of the system prompt, or a note at the end of a
+// subagent's task, sends prose a person reads to them, and a Markdown write is
+// refused until the agent making it has loaded `house-rules:unslop`.
 
 const EM_DASH = String.fromCharCode(0x2014)
 
@@ -243,10 +249,117 @@ const SHELL_TEXT_TO_FILE =
   'Write the file with the Write tool, or change it with Edit; a heredoc or here-string ' +
   "that feeds a commit message or a program's stdin is still fine."
 
+// The writing skills. An agent loads unslop with the Skill tool or as a typed
+// command; one with no Skill tool, such as a plan writer, reads its file. A
+// fork carries what its parent loaded, and a /clear unloads it.
+
+// The agents that loaded unslop in this conversation: `main`, or a subagent's id.
+const unslopped = atom({ plugin: 'house-rules', key: 'unslopped' } as const, [] as UnsloppedAgents)
+
+const MAIN = 'main'
+const UNSLOP = 'house-rules:unslop'
+
+const agentOf = (e: { agentId?: string }) => e.agentId ?? MAIN
+
+const succeeded = (answer: ToolCallResult) => answer.deny === undefined && answer.isError !== true
+
+// The skill's file in the plugin's folder, in the folder's own separators.
+const unslopFile = ($: EngineInterface) => {
+  const root = $.plugin.root.replace(/[\\/]+$/, '')
+  return [root, 'skills', 'unslop', 'SKILL.md'].join(root.includes('\\') ? '\\' : '/')
+}
+
+const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
+
+const hasUnslop = async ($: EngineInterface, e: { agentId?: string }) => (await read($, unslopped)).includes(agentOf(e))
+
+const markUnslopped = ($: EngineInterface, agent: string) =>
+  update($, unslopped, agents => (agents.includes(agent) ? agents : [...agents, agent]))
+
+const WRITING = [
+  '# Writing',
+  '',
+  'Prose a person reads follows the house-rules writing skills.',
+  'Load `house-rules:unslop` with the Skill tool once per conversation, before the first such prose: a Markdown file, a commit message, a pull request body, a report, or a reply of more than a few sentences.',
+  "For documentation (a README, a guide, a reference, an explanation, an RFC, a skill or an agent's prompt), a pull request description or a commit message, also load `house-rules:technical-writing`.",
+  'A Markdown write is refused until the agent making it has loaded `house-rules:unslop`.',
+].join('\n')
+
+const writingFrom = (file: string) =>
+  [
+    '# Writing',
+    '',
+    `Before you write prose a person reads, such as a Markdown file or a report, read ${file} and follow it.`,
+    'A Markdown write is refused until you have read it.',
+  ].join('\n')
+
+// A subagent runs on its own definition's system prompt, which no
+// prompt.compose hook reaches, so its task carries the note. Nothing at the
+// spawn says whether it has the Skill tool, so the note names both ways.
+const writingForTask = (file: string) =>
+  [
+    '# Writing',
+    '',
+    `Before you write prose a person reads, such as a Markdown file or a report, load \`${UNSLOP}\` with the Skill tool, or read ${file} if you have no Skill tool, and follow it.`,
+    'A Markdown write is refused until you have.',
+  ].join('\n')
+
+const notUnslopped = (path: string, file: string) =>
+  `house-rules: this call writes Markdown to ${path}, and this agent has not loaded the unslop skill yet. ` +
+  `Load \`${UNSLOP}\` with the Skill tool, or read ${file} if you have no Skill tool. ` +
+  'Check the text against it, then make the change again.'
+
 const failed = { deny: 'house-rules: its guard failed, so the call was refused.' }
 
 export const register: Register = on => {
   on('attribution.text', { kind: ['commit', 'pr'] }, () => ({ text: '' }))
+
+  // An agent that can load skills is sent to them; one that writes files and
+  // cannot load them is sent to the file.
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    const text = e.tools.includes('Skill')
+      ? WRITING
+      : e.tools.includes('Write') || e.tools.includes('Edit')
+        ? writingFrom(unslopFile($))
+        : undefined
+    if (text === undefined) return composed
+    return { sections: [...composed.sections, { id: 'house-rules:writing', text, scope: 'session' as const }] }
+  })
+
+  on('prompt.submit', async ($, e, next) => {
+    const submitted = await next(e)
+    if (e.command?.name === UNSLOP && !('drop' in submitted)) await markUnslopped($, MAIN)
+    return submitted
+  }).catch(($, e, next) => next(e))
+
+  on('tool.call', { tool: 'Skill' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (succeeded(ran) && e.skill === UNSLOP) await markUnslopped($, agentOf(e))
+    return ran
+  }).catch(($, e, next) => next(e))
+
+  on('tool.call', { tool: 'Read' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (succeeded(ran) && samePath(e.file_path, unslopFile($))) await markUnslopped($, agentOf(e))
+    return ran
+  }).catch(($, e, next) => next(e))
+
+  // A new subagent's task carries the writing note. A fork carries its
+  // parent's context instead, and what its parent loaded. A resumed agent has
+  // its task already, and the engine would ignore a rewrite of it.
+  on('agent.spawn', async ($, e, next) => {
+    const noted = e.fork || e.resume !== undefined ? e : { ...e, prompt: `${e.prompt}\n\n${writingForTask(unslopFile($))}` }
+    const spawned = await next(noted)
+    if (spawned.deny !== undefined || !e.fork || spawned.agentId === undefined) return spawned
+    if ((await read($, unslopped)).includes(e.parentAgentId ?? MAIN)) await markUnslopped($, spawned.agentId)
+    return spawned
+  }).catch(($, e, next) => next(e))
+
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') await update($, unslopped, () => [])
+    return next(e)
+  })
 
   on('tool.call', { tool: ['Bash', 'PowerShell'] }, async ($, e, next) => {
     const reasons = [
@@ -260,6 +373,7 @@ export const register: Register = on => {
   on('tool.call', { tool: 'Edit' }, async ($, e, next) => {
     const reasons = [...(emDashes(e.new_string) > emDashes(e.old_string) ? [emDashAddedTo(e.file_path)] : [])]
     if (MARKDOWN.test(e.file_path)) {
+      if (!(await hasUnslop($, e))) reasons.unshift(notUnslopped(e.file_path, unslopFile($)))
       const before = await readOrEmpty($, e.file_path)
       const after = edited(before, e.old_string, e.new_string, e.replace_all)
       reasons.push(
@@ -273,9 +387,11 @@ export const register: Register = on => {
 
   on('tool.call', { tool: 'Write' }, async ($, e, next) => {
     const before = await readOrEmpty($, e.file_path)
+    const markdown = MARKDOWN.test(e.file_path)
     const reasons = [
+      ...(markdown && !(await hasUnslop($, e)) ? [notUnslopped(e.file_path, unslopFile($))] : []),
       ...(emDashes(e.content) > emDashes(before) ? [emDashAddedTo(e.file_path)] : []),
-      ...(MARKDOWN.test(e.file_path) ? sentenceReasons(e.file_path, before, e.content) : []),
+      ...(markdown ? sentenceReasons(e.file_path, before, e.content) : []),
     ]
     return refuse(reasons) ?? next(e)
   }).catch(($, e, next) => (next.called ? next(e) : failed))

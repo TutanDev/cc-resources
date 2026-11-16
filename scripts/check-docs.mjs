@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 // Ids that share the <plugin>:<name> form but name no skill, agent or workflow.
 const NOT_COMPONENTS = new Set([
   'dmf:routing', // the system prompt section the dmf hook adds
+  'house-rules:writing', // the system prompt section the house-rules hook adds
 ])
 const NUMBERS = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty'.split(' ')
 const KINDS = [

@@ -1,10 +1,12 @@
 # house-rules
 
-A Claude Code plugin that holds four writing rules at the tool call instead of leaving them to the model's memory.
+A Claude Code plugin that holds four writing rules at the tool call instead of leaving them to the model's memory, and carries two writing skills, `unslop` and `technical-writing`.
 A rule written in `CLAUDE.md` loses whenever a system reminder or an old habit says otherwise.
 A hook does not: the call is refused, and the refusal tells the model what to fix.
+The skills cover what a hook cannot judge, such as filler, hedging and AI vocabulary, and a fifth rule makes an agent load `unslop` before it writes Markdown.
 
-It is built on function hooks, an early-access Claude Code API, and was written and tested on Claude Code 2.1.294.
+It is built on function hooks, an early-access Claude Code API.
+The first four rules were written and tested on Claude Code 2.1.294, and the fifth on 2.1.325.
 
 ## Install
 
@@ -16,6 +18,23 @@ In Claude Code:
 ```
 
 Then run `/reload-plugins` or start a new session.
+
+## Skills
+
+| Skill | Role |
+|---|---|
+| `unslop` | Cuts AI tells from prose a person reads and gives it a voice: numbered patterns from AI vocabulary and filler to mannered prose and over-compression, and a section on adding soul |
+| `technical-writing` | A layered standard for documentation, pull request descriptions and commit messages: Diátaxis modes, Google developer style sentences, Simplified Technical English instructions and Global English syntax |
+
+The model loads them when it writes prose, and you can type either one, as `/house-rules:unslop` or `/house-rules:technical-writing`.
+`unslop`'s rule numbers match those of the list it was ported from, so a removed rule leaves a gap.
+Three rules differ from that list:
+
+- Rule 14, against a colon in mid-sentence, is left out.
+- Rule 13 allows a plain hyphen with a space on each side where a dash reads best, as the em dash rule below says.
+- Rule 17 keeps the heading case a set of documents already uses, so a set in title case stays in title case.
+
+Both skills adapt text from pstack, by Lauren Tan, under the MIT License, and [`NOTICE`](NOTICE) says which.
 
 ## The Rules
 
@@ -59,6 +78,21 @@ On the way through the shell, backslashes, dollar signs and regexes in the text 
 - A heredoc or here-string that feeds anything else still runs: a commit message (`git commit -m "$(cat <<'EOF'...`, `git commit -F -`), a program's stdin (`python - <<'EOF' > result.json`), a variable, or the output.
 - A heredoc's body is text, so an example command inside it is not judged.
 
+### Unslop Before Markdown
+
+An agent loads `unslop` before it writes Markdown (`.md`, `.mdx`, `.markdown`).
+
+- A section of the main conversation's system prompt (`prompt.compose`) tells the model to load `unslop` before the first prose a person reads, and `technical-writing` as well for documentation, pull request descriptions and commit messages.
+  A session with no Skill tool is told to read the skill's file instead, and one that cannot write files is told nothing.
+- A subagent runs on its own definition's system prompt, so a note at the end of its task (`agent.spawn`) tells it to load `unslop`, or to read the skill's file if it has no Skill tool, as `devflow:plan-writer` does not.
+  A fork already carries the main conversation's prompt, and its task gets no note.
+- A Write or Edit of a Markdown file is refused until the agent making it has loaded `unslop`, and the refusal names the skill and its file.
+  The other rules' reasons come with it, so one retry can fix them all.
+- An agent loads the skill with the Skill tool, as a typed `/house-rules:unslop` (`prompt.submit`), or by reading its file.
+  A load that fails counts for nothing.
+- Each agent loads the skill for itself.
+  A fork carries what its parent loaded (`agent.spawn`), and a `/clear` unloads it (`session.end`).
+
 ## Limits
 
 - Files written through MCP tools are not checked.
@@ -66,6 +100,20 @@ On the way through the shell, backslashes, dollar signs and regexes in the text 
 - A heredoc or here-string first stored in a variable and written to a file later (`$text = @'...'@`, then `Set-Content notes.md $text`) is not caught, nor a file a program writes from its stdin.
 - A citation with a quoted title (`"Title." *Venue*`) reads as two sentences.
 - A message file the guard cannot read, such as a relative path after the shell changed directory, is judged on the command's text alone.
+- The hooks check that an agent loaded `unslop`, not that its text follows the skill.
+  A commit message, a pull request body or a reply is sent to the skills by the system prompt alone, and a Markdown file written through a shell command is not held to the load.
+
+## Layout
+
+```
+house-rules/
+├── .claude-plugin/plugin.json
+├── hooks/           The function hooks that hold the five rules
+├── skills/          unslop and technical-writing
+├── tests/           The hooks' tests
+├── types/           The session value the hooks keep, as a typed contract
+└── NOTICE           The MIT notice for the text the skills adapt from pstack
+```
 
 ## Developing
 

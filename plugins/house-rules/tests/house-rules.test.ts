@@ -1,27 +1,43 @@
 import type { On, ToolCallResult } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
+import type { Engine } from 'claude-code/testing'
 
 const EM_DASH = '\u2014'
 const TRAILER = 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
 
 // Stands for the engine beneath the plugin: the files on disk, by name (the
-// engine resolves a read's path before it reaches here), and every tool call
-// that gets through, recorded as run.
-const engine = (on: On, files: Record<string, string> = {}) => {
+// engine resolves a read's path before it reaches here), every tool call that
+// gets through, recorded as run (a skill load or a read is not recorded), every
+// spawn starting an agent by the next id, its task recorded in `tasks`, and the
+// prompt, the composed system prompt and the session's end answering as an
+// unhooked session does.
+const engine = (on: On, files: Record<string, string> = {}, tasks: string[] = []) => {
   const ran: string[] = []
+  let spawned = 0
   on('fs.read', ($, e) => {
     const text = files[e.path.split(/[\\/]/).pop() ?? '']
     if (text === undefined) throw new Error(`ENOENT: ${e.path}`)
     return { value: text }
   })
   on('tool.call', ($, e) => {
-    ran.push(e.tool)
+    if (e.tool !== 'Skill' && e.tool !== 'Read') ran.push(e.tool)
     return { result: undefined as never }
   })
+  on('agent.spawn', ($, e) => {
+    tasks.push(e.prompt)
+    return { model: 'claude-opus-5-5', agentId: `agent-${(spawned += 1)}` }
+  })
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  on('prompt.compose', () => ({ sections: [{ id: 'core', text: 'core', scope: 'shared' as const }] }))
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   return ran
 }
 
 const refusal = (answer: ToolCallResult) => answer.deny ?? (answer.isError ? answer.text : undefined)
+
+// Loads the unslop skill, which a Markdown write needs first.
+const unslop = ($: Engine, agentId?: string) =>
+  $.tool.call({ tool: 'Skill', skill: 'house-rules:unslop', ...(agentId === undefined ? {} : { agentId }) })
 
 describe('attribution', () => {
   test('the commit and pull request attribution texts are blanked at their source', async $ => {
@@ -81,6 +97,7 @@ describe('attribution', () => {
 describe('em dash', () => {
   test('an edit that adds an em dash is refused, one that keeps an existing one runs', async ($, on) => {
     const ran = engine(on)
+    await unslop($)
     const added = { tool: 'Edit', file_path: 'a.md', old_string: 'a - b', new_string: `a ${EM_DASH} b` } as const
     const kept = { tool: 'Edit', file_path: 'a.md', old_string: `a ${EM_DASH} b`, new_string: `c ${EM_DASH} d` } as const
     expect(refusal(await $.tool.call(added))).toMatch(/em dash/)
@@ -90,6 +107,7 @@ describe('em dash', () => {
 
   test('a write is judged against the file it replaces', async ($, on) => {
     const ran = engine(on, { 'old.md': `x ${EM_DASH} y` })
+    await unslop($)
     const fresh = { tool: 'Write', file_path: 'new.md', content: `x ${EM_DASH} y` } as const
     const rewrite = { tool: 'Write', file_path: 'old.md', content: `x ${EM_DASH} y, z` } as const
     expect(refusal(await $.tool.call(fresh))).toMatch(/em dash/)
@@ -108,6 +126,7 @@ describe('em dash', () => {
 
   test('a Markdown edit that adds an em dash and a crowded line gives both reasons', async ($, on) => {
     engine(on, { 'doc.md': 'One sentence.\n' })
+    await unslop($)
     const edit = { tool: 'Edit', file_path: 'doc.md', old_string: 'One sentence.', new_string: `One ${EM_DASH} sentence. Two here.` } as const
     const reason = refusal(await $.tool.call(edit))
     expect(reason).toMatch(/em dash/)
@@ -128,6 +147,7 @@ describe('one sentence per line', () => {
 
   test('a new Markdown file with two sentences on a line is refused, and the line is named', async ($, on) => {
     const ran = engine(on)
+    await unslop($)
     const reason = refusal(await $.tool.call(write('post.md', '# Title\n\nThe frame is pure. Only the shell touches the GPU.\n')))
     expect(reason).toMatch(/more than one sentence on a line of post\.md/)
     expect(reason).toMatch(/The frame is pure\. Only the shell touches the GPU\./)
@@ -136,6 +156,7 @@ describe('one sentence per line', () => {
 
   test('one sentence per line, and what Markdown cannot split or is no sentence, all run', async ($, on) => {
     const ran = engine(on)
+    await unslop($)
     const content = [
       '---',
       'description: Front matter. Not prose.',
@@ -165,6 +186,7 @@ describe('one sentence per line', () => {
 
   test('a sentence that opens with inline code or follows a list marker still counts', async ($, on) => {
     engine(on)
+    await unslop($)
     expect(refusal(await $.tool.call(write('a.md', 'Run it once. `make` builds the rest.\n')))).toMatch(/sentence/)
     expect(refusal(await $.tool.call(write('b.md', '- **The pipeline is visible.** The editor draws it.\n')))).toMatch(/sentence/)
   })
@@ -177,6 +199,7 @@ describe('one sentence per line', () => {
 
   test('an edit that joins two sentences onto one line is refused', async ($, on) => {
     const ran = engine(on, { 'plan.md': 'The first sentence.\nThe second sentence.\n' })
+    await unslop($)
     const join = { tool: 'Edit', file_path: 'plan.md', old_string: 'sentence.\nThe', new_string: 'sentence. The' } as const
     expect(refusal(await $.tool.call(join))).toMatch(/The first sentence\. The second sentence\./)
     expect(ran).toEqual([])
@@ -185,6 +208,7 @@ describe('one sentence per line', () => {
   test('a typo fixed inside an old crowded line, or a rewrite that keeps it, runs', async ($, on) => {
     const legacy = 'Old line one. Old lien two.\nClean line.\n'
     const ran = engine(on, { 'legacy.md': legacy })
+    await unslop($)
     const typo = { tool: 'Edit', file_path: 'legacy.md', old_string: 'lien', new_string: 'line' } as const
     expect(refusal(await $.tool.call(typo))).toBeUndefined()
     expect(refusal(await $.tool.call(write('legacy.md', `${legacy}Another clean line.\n`)))).toBeUndefined()
@@ -251,5 +275,124 @@ describe('no file written from a heredoc or here-string', () => {
     ]
     for (const command of commands) expect(refusal(await $.tool.call({ tool: 'PowerShell', command }))).toBeUndefined()
     expect(ran).toEqual(commands.map(() => 'PowerShell'))
+  })
+})
+
+describe('writing skills', () => {
+  const write = (file_path: string, agentId?: string) =>
+    ({ tool: 'Write', file_path, content: 'One line.\n', ...(agentId === undefined ? {} : { agentId }) }) as const
+  const edit = (file_path: string) => ({ tool: 'Edit', file_path, old_string: 'a', new_string: 'b' }) as const
+  // The skill's file, as the refusal of an agent that has not loaded it names it.
+  const skillFile = async ($: Engine) => {
+    const named = /read (\S+) if you have no Skill tool/.exec(refusal(await $.tool.call(write('probe.md', 'agent-probe'))) ?? '')?.[1]
+    expect(named).toMatch(/[\\/]house-rules[\\/]skills[\\/]unslop[\\/]SKILL\.md$/)
+    return named ?? ''
+  }
+  const spawn = (subagentType: string, fork: boolean) => ({
+    tool_use_id: 'toolu_1',
+    prompt: 'Write the notes.',
+    description: 'Write notes',
+    subagentType,
+    provider: { plugin: 'house-rules', tier: 'user' as const },
+    parentModel: 'claude-opus-5-5',
+    background: false,
+    fork,
+  })
+  const compose = (tools: string[]) => ({
+    model: 'claude-opus-5-5',
+    promptModel: 'claude-opus-5-5',
+    surfaces: ['terminal' as const],
+    tools,
+    outputStyle: null,
+    traits: [],
+  })
+
+  test('a Markdown write is refused until unslop is loaded, and the refusal names the skill and its file', async ($, on) => {
+    const ran = engine(on, { 'notes.md': 'a\n' })
+    const reason = refusal(await $.tool.call(write('notes.md')))
+    expect(reason).toMatch(/writes Markdown to notes\.md, and this agent has not loaded the unslop skill yet/)
+    expect(reason).toMatch(/house-rules:unslop/)
+    expect(reason).toContain(await skillFile($))
+    expect(refusal(await $.tool.call(edit('notes.md')))).toMatch(/not loaded the unslop skill/)
+    await $.tool.call({ tool: 'Skill', skill: 'house-rules:technical-writing' })
+    expect(refusal(await $.tool.call(write('notes.md')))).toMatch(/not loaded the unslop skill/)
+    await unslop($)
+    expect(refusal(await $.tool.call(write('notes.md')))).toBeUndefined()
+    expect(refusal(await $.tool.call(edit('notes.md')))).toBeUndefined()
+    expect(refusal(await $.tool.call(write('Notes.cs')))).toBeUndefined()
+    expect(ran).toEqual(['Write', 'Edit', 'Write'])
+  })
+
+  test('a skill load that fails loads nothing', async ($, on) => {
+    on('tool.call', { tool: 'Skill' }, () => ({ deny: 'Permission to use Skill was denied.' }))
+    engine(on)
+    expect(refusal(await unslop($))).toMatch(/denied/)
+    expect(refusal(await $.tool.call(write('notes.md')))).toMatch(/not loaded the unslop skill/)
+  })
+
+  test('the refusal comes first, and the other rules still give their reasons', async ($, on) => {
+    engine(on)
+    const reason = refusal(await $.tool.call({ tool: 'Write', file_path: 'post.md', content: `One ${EM_DASH} two. Three here.\n` }))
+    expect(reason).toMatch(/^house-rules: this call writes Markdown/)
+    expect(reason).toMatch(/em dash/)
+    expect(reason).toMatch(/more than one sentence/)
+  })
+
+  test("each agent loads it for itself, and a fork carries its parent's", async ($, on) => {
+    engine(on)
+    await unslop($)
+    expect(refusal(await $.tool.call(write('notes.md', 'agent-7')))).toMatch(/not loaded the unslop skill/)
+    const fork = await $.agent.spawn(spawn('fork', true))
+    const fresh = await $.agent.spawn(spawn('general-purpose', false))
+    expect(refusal(await $.tool.call(write('notes.md', fork.agentId)))).toBeUndefined()
+    expect(refusal(await $.tool.call(write('notes.md', fresh.agentId)))).toMatch(/not loaded the unslop skill/)
+    await unslop($, fresh.agentId)
+    expect(refusal(await $.tool.call(write('notes.md', fresh.agentId)))).toBeUndefined()
+  })
+
+  test("a new subagent's task ends with the writing note, and a fork's is left alone", async ($, on) => {
+    const tasks: string[] = []
+    engine(on, {}, tasks)
+    await $.agent.spawn(spawn('general-purpose', false))
+    await $.agent.spawn(spawn('fork', true))
+    expect(tasks[0]).toMatch(/^Write the notes\.\n\n# Writing\n\n/)
+    expect(tasks[0]).toContain('`house-rules:unslop` with the Skill tool')
+    expect(tasks[0]).toContain(`read ${await skillFile($)} if you have no Skill tool`)
+    expect(tasks[1]).toBe('Write the notes.')
+  })
+
+  test('an agent with no Skill tool loads it by reading its file', async ($, on) => {
+    engine(on)
+    const writer = 'agent-3'
+    await $.tool.call({ tool: 'Read', file_path: 'D:/Repo/README.md', agentId: writer })
+    expect(refusal(await $.tool.call(write('plan.md', writer)))).toMatch(/not loaded the unslop skill/)
+    await $.tool.call({ tool: 'Read', file_path: (await skillFile($)).replace(/\\/g, '/').toUpperCase(), agentId: writer })
+    expect(refusal(await $.tool.call(write('plan.md', writer)))).toBeUndefined()
+  })
+
+  test('a typed /house-rules:unslop loads it for the main conversation, and a /clear unloads it', async ($, on) => {
+    engine(on)
+    await $.prompt.submit({ text: '/house-rules:unslop', wait: false, origin: { kind: 'composer' }, command: { name: 'house-rules:unslop', args: '' } })
+    expect(refusal(await $.tool.call(write('notes.md')))).toBeUndefined()
+    await $.session.end({ reason: 'clear', sessionId: 'session-1', resume: { id: 'session-1' } })
+    expect(refusal(await $.tool.call(write('notes.md')))).toMatch(/not loaded the unslop skill/)
+  })
+
+  test('the system prompt sends prose to the skills, or to the file for an agent that cannot load them', async ($, on) => {
+    engine(on)
+    const main = await $.prompt.compose(compose(['Skill', 'Edit', 'Agent']))
+    const writing = main.sections.find(section => section.id === 'house-rules:writing')
+    expect(writing?.scope).toBe('session')
+    expect(writing?.text).toMatch(/house-rules:unslop/)
+    expect(writing?.text).toMatch(/house-rules:technical-writing/)
+    expect(main.sections[0]?.id).toBe('core')
+
+    const writer = await $.prompt.compose(compose(['Read', 'Write', 'Edit']))
+    const byFile = writer.sections.find(section => section.id === 'house-rules:writing')
+    expect(byFile?.text).toContain(await skillFile($))
+    expect(byFile?.text).not.toMatch(/Skill tool/)
+
+    const reviewer = await $.prompt.compose(compose(['Read', 'Grep', 'Glob']))
+    expect(reviewer.sections.map(section => section.id)).toEqual(['core'])
   })
 })

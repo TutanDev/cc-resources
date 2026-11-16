@@ -1,8 +1,9 @@
 {
   "name": "house-rules",
   "displayName": "House Rules",
-  "version": "0.2.0",
-  "description": "Holds four writing rules at the tool call, so a reminder or a habit cannot win over them: no Claude attribution in commits or pull requests, no em dash in anything written, one full sentence per line of Markdown, and no file written from a shell heredoc or here-string.",
+  "version": "0.3.0",
+  "description": "Holds five writing rules at the tool call, so a reminder or a habit cannot win over them: no Claude attribution in commits or pull requests, no em dash in anything written, one full sentence per line of Markdown, no file written from a shell heredoc or here-string, and the unslop skill loaded before any Markdown write. Carries the unslop and technical-writing skills.",
+  "types": "./types/index.d.ts",
   "author": {
     "name": "TutanDev",
     "url": "https://github.com/TutanDev"
@@ -17,6 +18,7 @@
     "attribution",
     "markdown",
     "heredoc",
-    "writing-style"
+    "writing-style",
+    "skills"
   ]
 }
