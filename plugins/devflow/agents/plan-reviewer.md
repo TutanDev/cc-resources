@@ -34,6 +34,7 @@ Plugin files you open name other plugin files through a plugin-root placeholder;
 8. **Verification:** §7's commands exist in this repository (the solution, project, script or CI job they name); its scenarios cover the main path of every use case and say what to observe.
 9. **Code claims:** every existing service, type, file and command the plan names exists as written; check with Glob and Grep.
 10. **Risks and questions:** risks the change obviously carries are listed (persisted data and its migration, serialization, threading and the main thread, hot-path performance, compatibility); every open question says what depends on its answer; no assumption hides a decision only the user can make.
+    An open question about a fact a run could observe has a Probe line that says what to run and which result picks which option, and a question settled by probe gives its command and the output that decided it.
 
 ## Output
 

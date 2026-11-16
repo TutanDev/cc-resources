@@ -109,7 +109,24 @@ How the finished feature is checked end to end after the last phase, the way a u
 - **Risks:** what could go wrong (data migration, serialization, threading, performance on a hot path, compatibility) and the mitigation.
 - **Assumptions:** decisions the writer made because nobody stated them and the code could not answer them; each is a candidate question for the user.
 - **Open questions:** `Q-1`, `Q-2` and so on, each with the question, the options, the recommendation, and what in the plan depends on the answer.
+  A question that a run could settle also has a **Probe** line, until a probe settles it.
   An answered question moves to §9 with its answer.
+- **Settled by probe:** each question a probe settled, under its `Q-n`: what the probe observed, the evidence (the command, and the output that decided it), and the decision, with the sections it was applied in.
+
+#### Probes
+
+A question is one of two kinds, and its kind decides who settles it:
+
+- A **call** is a product, priority, budget or preference decision that no run can settle; only the user answers it.
+- A **fact** is something a run could observe: how the code, a library or the platform behaves, what a command prints, how long something takes, whether a format round-trips.
+  A probe settles it before anyone asks the user.
+
+A probe is the smallest script or command that observes the fact.
+It runs in a scratch folder outside the repository, never changes the product's code, and takes about ten minutes of work at most; the probes of one plan take about half an hour in all.
+The writer cannot run anything, so it writes the probe on the question's **Probe** line: what to run, and which result picks which option.
+`devflow:plan-feature` runs it, and the writer moves the question to **Settled by probe** with the evidence.
+A probe that cannot settle its question (it needs longer, needs the product changed, or the result is unclear) leaves the question open for the user, with what the probe showed.
+The user sees every settled question before approving, and may reopen one.
 
 ### §9 Decision Log
 
@@ -129,6 +146,7 @@ Each review round adds one table:
 A round with nothing to rule on adds one line that says why instead, such as "No findings survived verification." or, for a round that re-reviews earlier changes and rules only on critical and major findings, "No critical or major finding survived verification."
 Rounds are numbered over the plan's whole life: a later review continues from the last round in §9.
 User decisions are entries too: `Q-3 answered, <YYYY-MM-DD>: <answer>. Applied in <sections>.` and `Approved by the user, <YYYY-MM-DD>.`
+So is a probe: `Q-4 settled by probe, <YYYY-MM-DD>: <decision>. Applied in <sections>.`, with its evidence in §8.
 
 ## Phases
 

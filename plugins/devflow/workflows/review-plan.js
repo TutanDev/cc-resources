@@ -185,7 +185,7 @@ const RULINGS = {
           reason: { type: 'string' },
           sections: { ...STRINGS, description: 'plan sections to change, for accept; empty otherwise' },
           change: { type: 'string', description: 'the exact edit, for accept; empty otherwise' },
-          question: { type: 'string', description: 'the question with options and a recommendation, for ask; empty otherwise' },
+          question: { type: 'string', description: 'the question with options and a recommendation, plus the probe that settles it when it is a fact a run could observe, for ask; empty otherwise' },
         },
       },
     },
@@ -361,7 +361,7 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
 7. stale: the sources modified after the plan (compare modification times with \`ls -l --time-style=full-iso\` or \`Get-Item\`).
 8. useCases: every \`UC-n\` in the plan's §3, with its id, its name, and a one-line summary that names its failures.
 9. missing: the sections the plan lacks, of: 1 Goal, 2 Scope, 3 Use Cases, 4 Architecture Impact, 5 Domain Model Impact, 6 Phases, 7 Verification, 8 Risks, Assumptions and Open Questions, 9 Decision Log.
-10. openQuestions: the \`Q-n\` ids still open in §8.
+10. openQuestions: the \`Q-n\` ids still open in §8, under Open Questions; not those under Settled by Probe.
 11. lastRound: the highest n among the \`#### Round <n>, ...\` headings in §9, or 0 if there are none.
 12. legacyDocs: whether \`.claude/docs/\` under the repository root holds \`architecture.md\`, \`design/\`, \`plans/\` or \`reviews/\` (documents from an earlier version of these plugins).`,
     { schema: LOAD, label: expected ? `load round ${expected}` : 'load', phase: 'Load', ...ROLES.mechanical },
@@ -716,7 +716,7 @@ const next = []
 if (unsaved) next.push(`The plan writer did not save its rulings, so the plan is not revised. If Claude Code refused the write, ${ALLOW}. Then run the review again.`)
 if (unreviewed) next.push(`Tell the user that the critical or major changes of round ${unreviewed} were not re-reviewed: this run's round limit is ${maxRounds}.`)
 if (stopped) next.push(`The run stopped early: ${stopped}.`)
-if (open.length) next.push(`Ask the user the open questions in §8 (${open.join(', ')}), with their options and recommendations, and send the answers to \`devflow:plan-writer\` in Answers mode.`)
+if (open.length) next.push(`Ask the user the open questions in §8 (${open.join(', ')}), with their options and recommendations, and send the answers to \`devflow:plan-writer\` in Answers mode. First run the probe of each one that has a **Probe** line, as the plan contract's Probes says: a question its probe settles goes to the writer with the evidence, not to the user.`)
 else if (REVISABLE.includes(status) && !unsaved && !unreviewed && !stopped && rounds.every(r => r.judged)) next.push('No question is open, and no critical or major change is left without a re-review: once the user has read the reports, ask for their approval of the plan.')
 next.push('The plan\'s §8 and §9 hold the open questions and where each change was applied; the reports hold every finding and ruling in full.')
 

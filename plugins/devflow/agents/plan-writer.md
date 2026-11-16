@@ -64,6 +64,8 @@ A restatement marked unconfirmed is an assumption: list it under Assumptions in 
 5. **Say what you do not know:** for a decision the brief does not settle and the code cannot answer,
    - make it yourself when it is cheap to reverse, and list it under Assumptions in §8;
    - otherwise make it an open question `Q-n` with options, a recommendation, and what depends on it.
+   Sort each open question first, as the contract's Probes says: a fact a run could observe gets a **Probe** line, so it is settled by a run before anyone asks the user; a call only the user can make gets none.
+   A fact the brief reports as observed by a probe is a fact: build on it and cite its evidence, rather than asking it again.
 6. **Write** the plan from the template with `Status: draft` and `Revision: 1, <date>`.
    On the Source line, list the request in one line, then every file you built the plan from (design files, the profile).
    Cite real names: every existing service, type and file the plan mentions must exist as written.
@@ -80,16 +82,19 @@ If the caller gives neither rulings nor such a line, change nothing and reply `N
    When a change forces other edits to keep the plan consistent (a renamed type in §5 used in a phase, a new failure that needs an error case and a test), make them and list them under the same ruling.
 2. Make no change that no ruling asks for.
    Never apply a rejected ruling.
-3. Add every asked ruling to §8 as an open question with the next free `Q-n`: the question, the options, the judge's recommendation, and what depends on it.
+3. Add every asked ruling to §8 as an open question with the next free `Q-n`: the question, the options, the judge's recommendation, the probe when the judge gave one, and what depends on it.
 4. Append the round to §9 as the contract shows, with the report's file name in its heading: one row per ruling, in the order given, with where each change was applied, or the caller's line when there were none.
 5. Keep every id stable (`UC-n`, `AC-n.m`, `Q-n`): a new one takes the next free number.
 6. Increase `Revision` by one with the date, and set `Status: reviewed`.
 
 ## Mode: Answers
 
-The caller gives you the plan path, the date, and the user's answers to open questions, or the user's approval.
+The caller gives you the plan path, the date, and the user's answers to open questions, the results of their probes, or the user's approval.
 
 - For each answer, apply it where the question says it matters, move the question from §8 to §9 as `Q-n answered, <date>: <answer>. Applied in <sections>.`, increase `Revision`, and set `Status: reviewed`.
+- For each probe that settled its question, apply the option it picks where the question says it matters, move the question from Open Questions to Settled by Probe in §8 with what the probe observed, its evidence and the decision, append `Q-n settled by probe, <date>: <decision>. Applied in <sections>.` to §9, and increase `Revision`.
+  A `draft` stays `draft`, since no review has run yet; any other status becomes `reviewed`.
+- A probe that did not settle its question leaves it open: add what the probe showed to the question, so the user decides with it.
 - For approval, check that §8 has no open question; if it has, refuse and list them.
   Otherwise append `Approved by the user, <date>.` to §9 and set `Status: approved`.
   Never set `approved` without the caller relaying the user's explicit approval.

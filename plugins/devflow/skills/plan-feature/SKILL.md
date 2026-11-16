@@ -46,6 +46,15 @@ Then restate the request in your own words, in two to four sentences: the user's
 A misunderstanding caught here costs one answer; caught after a review round, it costs the round.
 If what you read rules out the change the user asked for, show the evidence and settle the direction with the user before anything else.
 
+Sort every question before you ask it, as the Probes part of the plan contract says.
+A fact a run could observe (how the code, a library or the platform behaves, what a command prints, whether a format round-trips) is not the user's to answer: probe it.
+Write the smallest script or command that observes it, in a scratch folder outside the repository (the session's scratchpad when it has one), run it, and keep the command and the output that decided it.
+Never change the product's code for a probe.
+Give up on a probe after about ten minutes, or once the plan's probes have taken about half an hour in all, and ask the user instead, with what the probe showed.
+A fact a probe settles is no question: it goes in the brief as a constraint, with its evidence.
+A fact that only informs a call is probed too, and its result backs your recommendation when you ask the call.
+Only calls reach the user: product, priority, budget and preference decisions.
+
 Then ask the user only what changes the plan and the code cannot answer: behavior at the edges (failures, limits), the scope boundary, and constraints (platforms, performance, compatibility, persisted data).
 Ask in one round, with the AskUserQuestion tool when it is available.
 The first question holds your restatement and the feature name, and asks whether both are right, with "Yes" as the recommended option; the user may see only the question dialog, so the restatement goes in the question's own text.
@@ -56,13 +65,14 @@ When you cannot ask (a non-interactive run), do not stop: put the restatement in
 
 Delegate to the `devflow:plan-writer` agent in Draft mode with:
 
-- the brief: the request as the user gave it, word for word; your restatement, as the user confirmed or corrected it; their answers; the unresolved questions; and the constraints you found;
+- the brief: the request as the user gave it, word for word; your restatement, as the user confirmed or corrected it; their answers; the unresolved questions; and the constraints you found, each fact a probe settled with its command and output;
 - where the relevant code and design files are;
 - the feature name and today's date (`date +%F`, or `Get-Date -Format yyyy-MM-dd`).
 
 Give the writer facts, not a design of your own: the plan is the writer's, and the reviewers judge it.
 
-Show the user a short outline from the writer's reply: use cases, services touched, phases, open questions.
+When the draft's §8 holds questions with a **Probe** line, run each probe as in Phase 1, and send the results to `devflow:plan-writer` in Answers mode, with the date.
+Show the user a short outline from the writer's reply: use cases, services touched, phases, open questions, and the questions probes settled.
 Ask whether to run the review now or correct the direction first; a correction goes back to the writer, which replaces the draft.
 In a non-interactive run, go straight to the review.
 
@@ -105,9 +115,11 @@ Show the user:
 - the changes made, one line per accepted ruling, from §9;
 - what was rejected, and why, one line each;
 - the conflicts between lenses the judge settled;
+- the questions probes settled, each with its decision and evidence, which the user may reopen;
 - the open questions.
 
-Ask the open questions with their options and the recommendation from §8.
+Before you ask, run the probe of each open question that has a **Probe** line, as in Phase 1, and send the results to `devflow:plan-writer` in Answers mode; a probe that settles its question takes it off the list.
+Ask the open questions that are left with their options and the recommendation from §8.
 Send the answers to `devflow:plan-writer` in Answers mode, with the date.
 If an answer changes §3-§6 in substance (a new use case, service, type or phase), offer another review (Phase 3), with the answers as its `focus`.
 

@@ -35,6 +35,8 @@ Findings with the same root cause get one ruling that lists all their ids.
   Never reject a finding because it is inconvenient, or because the plan "can fix it during implementation".
 - **ask** when the right answer depends on a product, priority or budget decision only the user can make, or when the finding contradicts something the user explicitly asked for.
   Write the question with its options and your recommendation, and say what depends on it.
+  Also ask when the right answer is a fact that a run could observe and nobody has observed yet (how the code, a library or the platform behaves), and add the probe that settles it, as the contract's Probes says: what to run, and which result picks which option.
+  `devflow:plan-feature` runs that probe before the user sees the question, so the user is asked only the calls that are theirs.
 
 Severity guides the default:
 

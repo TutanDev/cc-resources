@@ -153,6 +153,8 @@ Plans live in `cc-docs/plans/<feature>.md`, in nine fixed sections:
 ```
 
 Every phase leaves the build green, every acceptance criterion is checkable by an agent, and every ruling and answer is logged in §9.
+§8 sorts its questions: a fact a run could observe gets a probe, which `plan-feature` runs in a scratch folder before asking you, and its command and output back the decision.
+Only product, priority, budget and preference calls reach you, and you see every question a probe settled before you approve.
 A plan goes from `draft` to `reviewed` to `approved` (by you only), then `in-progress` and `done` as it is implemented.
 `references/feature-plan.md` is the contract, and `references/plan-template.md` the skeleton.
 Each review round's report goes to `cc-docs/reviews/<feature>-plan-review-<date>-round-<n>.md`.

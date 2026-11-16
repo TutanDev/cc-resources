@@ -115,7 +115,15 @@
 - `Q-1` <question>
   - **Options:** <a>; <b>
   - **Recommendation:** <a>, because <reason>
+  - **Probe:** <for a fact a run could observe: what to run, and which result picks which option; left out for a call only the user can make>
   - **Depends on it:** <sections or phases>
+
+### Settled by Probe
+
+- `Q-2` <question>
+  - **Observed:** <what the probe showed>
+  - **Evidence:** <the command, and the output that decided it>
+  - **Decision:** <the option it picks>; applied in <sections>
 
 ## 9. Decision Log
 
