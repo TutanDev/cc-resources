@@ -136,8 +136,87 @@ describe('implementation gate', () => {
   test('a /clear unloads every skill', async ($, on) => {
     engine(on)
     await $.tool.call(skill('dmf:domain-modeling'))
+    await $.tool.call(skill('dmf:workflow-implementation'))
     await $.session.end({ reason: 'clear', sessionId: 'session-1', resume: { id: 'session-1' } })
     expect(refusal(await $.tool.call(edit(DOMAIN)))).toMatch(/dmf implementation skill/)
+    await $.tool.call(skill('dmf:domain-modeling'))
+    expect(refusal(await $.tool.call(write(PIPELINE, WORKFLOW)))).toMatch(/dmf:workflow-implementation/)
+  })
+})
+
+const WORKFLOW = [
+  'public static class PlaceOrder',
+  '{',
+  '    public static async Task<PlaceOrderOutcome> Run(IOrderStore store, UnvalidatedOrder order)',
+  '    {',
+  '        var outcome = Decide(await store.Find(order.Id));',
+  '        return outcome;',
+  '    }',
+  '}',
+].join('\n')
+
+const TYPES = [
+  'public abstract record PlaceOrderOutcome',
+  '{',
+  '    private PlaceOrderOutcome() { }',
+  '    // Placed after the store, which is async, saved it.',
+  '    public sealed record Placed(OrderId Id) : PlaceOrderOutcome;',
+  '}',
+  'public interface IOrderStore { Task<Order?> Find(OrderId id); }',
+].join('\n')
+
+const write = (file_path: string, content: string, agentId?: string) =>
+  ({ tool: 'Write', file_path, content, ...(agentId === undefined ? {} : { agentId }) }) as const
+
+describe('workflow gate', () => {
+  test('code that awaits is refused until the agent loads the workflow skill, whatever else it loaded', async ($, on) => {
+    const ran = engine(on)
+    for (const name of ['dmf:domain-modeling', 'dmf:serialization-persistence', 'dmf:orchestrator']) await $.tool.call(skill(name))
+    const reason = refusal(await $.tool.call(write(PIPELINE, WORKFLOW)))
+    expect(reason).toMatch(/awaits/)
+    expect(reason).toMatch(/dmf:workflow-implementation/)
+    expect(reason).toMatch(/PlaceOrder\.cs/)
+    await $.tool.call(skill('dmf:workflow-implementation'))
+    expect(refusal(await $.tool.call(write(PIPELINE, WORKFLOW)))).toBeUndefined()
+    expect(ran.filter(tool => tool === 'Write')).toEqual(['Write'])
+  })
+
+  test('an edit is judged by the text it adds', async ($, on) => {
+    engine(on)
+    await $.tool.call(skill('dmf:domain-modeling'))
+    const awaiting = { tool: 'Edit', file_path: PIPELINE, old_string: 'Decide(order)', new_string: 'Decide(await store.Find(order.Id))' } as const
+    const plain = { tool: 'Edit', file_path: PIPELINE, old_string: 'var total = 0;', new_string: 'var total = 1;' } as const
+    expect(refusal(await $.tool.call(awaiting))).toMatch(/dmf:workflow-implementation/)
+    expect(refusal(await $.tool.call(plain))).toBeUndefined()
+  })
+
+  test('types, contracts that return a Task, and the words in comments need only an implementation skill', async ($, on) => {
+    engine(on)
+    await $.tool.call(skill('dmf:domain-modeling'))
+    expect(refusal(await $.tool.call(write(DOMAIN, TYPES)))).toBeUndefined()
+  })
+
+  test('the workflow skill typed as a command counts, and a fork carries it', async ($, on) => {
+    engine(on)
+    await $.prompt.submit({
+      text: '/dmf:workflow-implementation',
+      wait: false,
+      origin: { kind: 'composer' },
+      command: { name: 'dmf:workflow-implementation', args: '' },
+    })
+    expect(refusal(await $.tool.call(write(PIPELINE, WORKFLOW)))).toBeUndefined()
+    const fork = await $.agent.spawn(spawn('fork', { fork: true }))
+    const fresh = await $.agent.spawn(spawn('general-purpose'))
+    expect(refusal(await $.tool.call(write(PIPELINE, WORKFLOW, fork.agentId)))).toBeUndefined()
+    await $.tool.call(skill('dmf:domain-modeling', fresh.agentId))
+    expect(refusal(await $.tool.call(write(PIPELINE, WORKFLOW, fresh.agentId)))).toMatch(/dmf:workflow-implementation/)
+  })
+
+  test("Serena's tools are judged by the code they write", async ($, on) => {
+    engine(on)
+    await $.tool.call(skill('dmf:domain-modeling'))
+    const replace = { tool: 'mcp__plugin_serena_serena__replace_symbol_body' as const, name_path: 'PlaceOrder/Run', relative_path: 'Assets/PlaceOrder.cs', body: WORKFLOW }
+    expect(refusal(await $.tool.call(replace))).toMatch(/dmf:workflow-implementation/)
   })
 })
 
@@ -213,6 +292,7 @@ describe('routing', () => {
     expect(routing?.scope).toBe('session')
     expect(routing?.text).toMatch(/dmf:domain-discovery/)
     expect(routing?.text).toMatch(/dmf:workflow-implementation/)
+    expect(routing?.text).toMatch(/even when its types come with it/)
     expect(routing?.text).toMatch(/dmf:dmf-reviewer/)
     expect(sections[0]?.id).toBe('core')
   })

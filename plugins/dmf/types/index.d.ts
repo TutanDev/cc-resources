@@ -1,6 +1,7 @@
 // The session values the dmf hooks keep: which agents loaded an implementation
-// skill, the C# files written since the turn last ended, and whether a dmf
-// reviewer ran since then or the turn was already sent back to run one.
+// skill and which the workflow skill, the C# files written since the turn last
+// ended, and whether a dmf reviewer ran since then or the turn was already sent
+// back to run one.
 export type DmfReview = 'none' | 'ran' | 'asked'
 
 // The token counts of one reviewer run, summed over every request it made.
@@ -48,6 +49,7 @@ declare module 'claude-code' {
   interface PluginState {
     dmf: {
       guided: string[]
+      workflowGuided: string[]
       unreviewed: string[]
       review: DmfReview
       // The reviewer runs of this session and the earlier ones the store keeps, oldest first.

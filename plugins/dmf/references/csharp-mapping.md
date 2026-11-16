@@ -125,6 +125,8 @@ public abstract record PaymentMethod
 - The base holds no data and no behavior, so this is a union, not the "inheritance hierarchy" DMF warns against.
   Open hierarchies (public or protected base constructors, virtual behavior, cases in other files or assemblies) stay forbidden.
 - Use an `enum` only when no case carries data and the set is stable; casts such as `(Color)42` make enums open.
+- A union written by hand, such as a `Result<T, E>` in a project with no functional library, is a closed record hierarchy too, never a struct with a flag.
+  `default` of that struct holds no case at all, which is the illegal state the union exists to rule out.
 
 Consume a union with a switch expression whose default arm reports a programming error:
 

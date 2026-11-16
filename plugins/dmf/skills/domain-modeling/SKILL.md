@@ -3,7 +3,8 @@ name: domain-modeling
 description: >
   Model domains with algebraic types (C# by default, F# on request) following "Domain Modeling Made Functional" methodology.
   Use this skill whenever the task involves defining domain types, modeling entities, value objects,
-  aggregates, or workflows as types. Trigger on: "model this domain", "define types for",
+  aggregates, or a workflow's signature as types. Implementing the workflow itself is dmf:workflow-implementation,
+  loaded beside this skill when a task needs both. Trigger on: "model this domain", "define types for",
   "make illegal states unrepresentable", "domain model", "bounded context types",
   "constrained type", "smart constructor", "algebraic data type", "discriminated union for domain",
   "value object", "entity", "aggregate". Also trigger when reviewing or refactoring domain types
@@ -15,6 +16,10 @@ description: >
 This skill encodes the type-driven domain modeling approach from "Domain Modeling Made Functional."
 The core principle: **the domain model IS the types**. Types are not an implementation detail -
 they ARE the design, the documentation, and the constraints, all in one.
+
+This skill designs the types.
+Implementing a workflow, the function that takes a request or command and its dependencies and returns the outcome, is `dmf:workflow-implementation`.
+Load it too before writing that function, even when the function goes in the same file as its types.
 
 ## Language
 

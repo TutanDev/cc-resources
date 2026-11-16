@@ -7,13 +7,16 @@ import { REVIEWERS, registerReviewerLog } from './reviewer-log'
 // Holds C# work to the dmf skills instead of leaving it to whether a skill's
 // description happened to match the prompt. A standing section of the system
 // prompt routes design, implementation and review to them; a C# edit is
-// refused until the agent making it has loaded an implementation skill; and a
-// turn that changed C# is sent back once, before it ends, to run the dmf
-// reviewers on what it wrote.
+// refused until the agent making it has loaded an implementation skill, and
+// code that awaits until it has loaded the workflow skill; and a turn that
+// changed C# is sent back once, before it ends, to run the dmf reviewers on
+// what it wrote.
 
 // The agents that loaded an implementation skill in this conversation: `main`,
 // or a subagent's id.
 const guided = atom({ plugin: 'dmf', key: 'guided' } as const, [] as string[])
+// The agents that loaded the workflow skill in this conversation.
+const workflowGuided = atom({ plugin: 'dmf', key: 'workflowGuided' } as const, [] as string[])
 // The C# files written since the turn last ended.
 const unreviewed = atom({ plugin: 'dmf', key: 'unreviewed' } as const, [] as string[])
 // Whether a dmf reviewer ran since the turn last ended, or the turn was
@@ -23,12 +26,20 @@ const review = atom({ plugin: 'dmf', key: 'review' } as const, 'none' as DmfRevi
 const MAIN = 'main'
 const agentOf = (e: { agentId?: string }) => e.agentId ?? MAIN
 
+const WORKFLOW_SKILL = 'dmf:workflow-implementation'
 const IMPLEMENTATION_SKILLS = [
   'dmf:domain-modeling',
-  'dmf:workflow-implementation',
+  WORKFLOW_SKILL,
   'dmf:serialization-persistence',
   'dmf:orchestrator',
 ]
+
+// Code that awaits runs a workflow, or the I/O at its edge, whatever skill
+// the agent took the task for. A contract that only returns a Task, and the
+// word in a comment, do not count.
+const COMMENT = /\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g
+const AWAITS = /\b(?:await|async)\b/
+const awaits = (code: string) => AWAITS.test(code.replace(COMMENT, ''))
 
 // C# that a person writes; build output and generated code are not.
 const CSHARP = /\.cs$/i
@@ -69,6 +80,14 @@ const writtenFiles = (e: ToolCallInput): string[] => {
   return []
 }
 
+// The code a call adds, where the call carries it; a shell command's is not seen.
+const writtenCode = (e: ToolCallInput): string => {
+  if (e.tool === 'Edit') return e.new_string
+  if (e.tool === 'Write') return e.content
+  if (SERENA_EDIT.test(String(e.tool))) return ['body', 'content', 'repl'].flatMap(key => textField(e, key)).join('\n')
+  return ''
+}
+
 const succeeded = (answer: ToolCallResult) => answer.deny === undefined && answer.isError !== true
 
 const withAll = (list: readonly string[], items: readonly string[]) => [...new Set([...list, ...items])]
@@ -88,12 +107,20 @@ const ROUTING = [
   'Load the one that fits with the Skill tool before the work starts, not after it:',
   '',
   '- Designing: a domain, its events, workflows or bounded contexts goes to `dmf:domain-discovery`; the types that encode it go to `dmf:domain-modeling`; a design that spans phases goes to `dmf:orchestrator`.',
-  '- Implementing: domain types go to `dmf:domain-modeling`; workflow steps, pipelines, Result handling and dependency wiring go to `dmf:workflow-implementation`; DTOs, serializers and persistence go to `dmf:serialization-persistence`.',
+  '- Implementing: domain types go to `dmf:domain-modeling`; a workflow (the function that takes a request or command and its dependencies and returns the outcome), its steps, pipelines, Result handling and dependency wiring go to `dmf:workflow-implementation`, even when its types come with it in the same file, so load both; DTOs, serializers and persistence go to `dmf:serialization-persistence`.',
   '- Reviewing: run the `dmf:dmf-reviewer` and `dmf:fp-reviewer` agents on the C# in scope, beside any other review.',
   '',
   'Code with little domain logic in it (an editor window, a MonoBehaviour, a test) still goes through the closest skill: the skills say how such code keeps logic pure and effects at the edge.',
-  'A C# edit is refused until the agent making it has loaded `dmf:domain-modeling`, `dmf:workflow-implementation`, `dmf:serialization-persistence` or `dmf:orchestrator`, and a turn that changed C# is sent back once to run the dmf reviewers before it ends.',
+  'A C# edit is refused until the agent making it has loaded `dmf:domain-modeling`, `dmf:workflow-implementation`, `dmf:serialization-persistence` or `dmf:orchestrator`, code that awaits until it has loaded `dmf:workflow-implementation`, and a turn that changed C# is sent back once to run the dmf reviewers before it ends.',
 ].join('\n')
+
+const unguidedWorkflow = (files: readonly string[]) =>
+  [
+    'dmf: this call writes C# that awaits, and this agent has not loaded dmf:workflow-implementation:',
+    listed(files),
+    'Code that awaits runs a workflow, or the I/O at its edge, and a workflow never skips the workflow skill.',
+    'Load dmf:workflow-implementation with the Skill tool, follow it, then make the change again, whatever other dmf skill is loaded.',
+  ].join('\n')
 
 const unguided = (files: readonly string[]) =>
   [
@@ -146,6 +173,7 @@ export const register: Register = on => {
     const submitted = await next(e)
     if (e.command !== undefined && IMPLEMENTATION_SKILLS.includes(e.command.name) && !('drop' in submitted)) {
       await update($, guided, agents => withAll(agents, [MAIN]))
+      if (e.command.name === WORKFLOW_SKILL) await update($, workflowGuided, agents => withAll(agents, [MAIN]))
     }
     return submitted
   })
@@ -154,11 +182,13 @@ export const register: Register = on => {
     if (e.tool === 'Skill') {
       const ran = await next(e)
       if (succeeded(ran) && IMPLEMENTATION_SKILLS.includes(e.skill)) await update($, guided, agents => withAll(agents, [agentOf(e)]))
+      if (succeeded(ran) && e.skill === WORKFLOW_SKILL) await update($, workflowGuided, agents => withAll(agents, [agentOf(e)]))
       return ran
     }
     const files = writtenFiles(e).filter(isAuthoredCSharp)
     if (files.length === 0) return next(e)
     if (!(await read($, guided)).includes(agentOf(e))) return { deny: unguided(files) }
+    if (awaits(writtenCode(e)) && !(await read($, workflowGuided)).includes(agentOf(e))) return { deny: unguidedWorkflow(files) }
     const ran = await next(e)
     if (succeeded(ran)) await update($, unreviewed, pending => withAll(pending, files))
     return ran
@@ -169,9 +199,10 @@ export const register: Register = on => {
   on('agent.spawn', async ($, e, next) => {
     const spawned = await next(e)
     if (spawned.deny !== undefined) return spawned
-    if (e.fork && spawned.agentId !== undefined && (await read($, guided)).includes(e.parentAgentId ?? MAIN)) {
-      const fork = spawned.agentId
-      await update($, guided, agents => withAll(agents, [fork]))
+    if (e.fork && spawned.agentId !== undefined) {
+      const [fork, parent] = [spawned.agentId, e.parentAgentId ?? MAIN]
+      if ((await read($, guided)).includes(parent)) await update($, guided, agents => withAll(agents, [fork]))
+      if ((await read($, workflowGuided)).includes(parent)) await update($, workflowGuided, agents => withAll(agents, [fork]))
     }
     if (REVIEWERS.includes(e.subagentType)) await update($, review, () => 'ran' as const)
     return spawned
@@ -207,6 +238,7 @@ export const register: Register = on => {
   on('session.end', async ($, e, next) => {
     if (e.reason === 'clear') {
       await update($, guided, () => [])
+      await update($, workflowGuided, () => [])
       await update($, unreviewed, () => [])
       await update($, review, () => 'none' as const)
     }

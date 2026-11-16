@@ -8,7 +8,9 @@ description: >
   "railroad oriented", "two-track", "partial application", "dependency injection functional",
   "computation expression", "asyncResult", "implement validation step", "implement pricing",
   "compose functions", "function adapter", "composition root". Also trigger when the user has
-  domain types (from dmf:domain-modeling) and needs to write the implementation code.
+  domain types (from dmf:domain-modeling) and needs to write the implementation code, and whenever
+  a task implements a use case, handler or request end to end (placing an order, booking a room,
+  approving a refund), even when it also needs new types: then load dmf:domain-modeling beside this skill.
 ---
 
 # Implementing Workflows as Pipelines (DMF Methodology)
@@ -40,11 +42,54 @@ Each step:
 3. Documents its effects in the return type
 4. Can be tested in isolation with fake dependencies
 
+## The First Step Checks the Raw Input
+
+A workflow's input arrives raw: an API request, a command DTO or a form, with nullable strings and other primitives.
+Its first step turns that input into a validated stage before any lookup or rule runs.
+
+- Each id and value becomes its constrained type (`CustomerId`, `ProductCode`, `Quantity`) through the type's smart constructor.
+- A missing, blank or malformed field is refused as a value of the workflow's error union: never thrown, and never folded into another refusal such as "not found".
+- Lookups, rules and the later steps take the validated values, never the raw request.
+
+Do this even when the codebase around the workflow keeps its ids as plain strings.
+Define the constrained types the workflow needs beside it, and unwrap one (`customerId.Value`) only at the call to a dependency whose signature takes a string.
+An inline guard such as `string.IsNullOrWhiteSpace(request.CustomerId) ? null : await customers.Find(request.CustomerId)` is not this step: the raw string flows on, and no type records that it was checked.
+
+## Reads First, Rules Pure, Writes Last
+
+When a workflow reads records to decide (an invoice, a customer, a stock level, today's date), it reads them all before any rule runs, decides in a pure function of what it read, and writes after.
+This is the book's "push persistence to the edges": load, decide, save.
+
+- The decision takes the records, counts and date as plain parameters, and the new entity's id, or a function that makes one, when it builds an entity.
+  It returns the outcome, and never calls the store, the clock or `Guid.NewGuid()` itself.
+- A lookup whose missing result is itself a refusal (no such invoice) may refuse right after it: that is still gathering inputs.
+- A read that needs an earlier read's result (a customer's open orders need the customer) follows that read, still before the rules.
+- Reading first still reports the first broken rule, because the decision checks the rules in their order.
+  Skipping a read that an early refusal made unneeded is not worth rules that cannot run without a store.
+
+```fsharp
+let payInvoice loadUnpaidInvoice getToday saveInvoice : PayInvoice =
+    fun payment ->
+        asyncResult {
+            // Read everything the decision needs; a lookup that finds nothing refuses here.
+            let! invoice = loadUnpaidInvoice payment.InvoiceId
+            let today = getToday ()
+            // Decide: pure, every rule in its order, no store and no clock.
+            let! paid = applyPayment today invoice payment |> AsyncResult.ofResult
+            // Write what was decided.
+            do! saveInvoice paid
+            return paid
+        }
+```
+
+A query the book hands a step, such as `checkProductCodeExists` in `validateOrder`, stays a parameter of that step.
+What this section rules out is a store or clock call between two rule checks.
+
 ## Implementation Sequence
 
 Follow this order when implementing a workflow:
 
-1. **Simple type constructors** - `OrderId.create`, `String50.create`, etc.
+1. **Simple type constructors** - `OrderId.create`, `String50.create`, etc., one for each raw id or value the workflow's input carries
 2. **Helper functions** - `toCustomerInfo`, `toAddress`, `toValidatedOrderLine`, etc.
 3. **Each pipeline step** - `validateOrder`, `priceOrder`, `acknowledgeOrder`, `createEvents`
 4. **Pipeline composition** - The top-level `placeOrder` function
@@ -391,6 +436,8 @@ No mocking libraries needed. Just define lambdas.
 
 ## Checklist
 
+- [ ] The first step turns the raw input into constrained types, even where the codebase keeps primitives, and refuses a missing or blank field as a value
+- [ ] The workflow reads first, decides in a pure function of what it read, and writes last: no store or clock call sits between two rule checks
 - [ ] Each step is a pure, stateless function
 - [ ] All dependencies are explicit function parameters
 - [ ] Error types are aligned via `mapError` before composition (C#: every failure is built from the workflow's error union)

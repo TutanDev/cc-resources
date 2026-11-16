@@ -51,6 +51,7 @@ Function hooks hold C# work to the skills, instead of leaving it to whether a sk
 |---|---|
 | Every session | A section of the system prompt routes designing, implementing and reviewing C# to the matching skill or reviewer |
 | A C# file is about to be written | The call is refused until the agent writing it has loaded `domain-modeling`, `workflow-implementation`, `serialization-persistence` or `orchestrator`; the refusal says which fits what |
+| C# that awaits is about to be written | The call is refused until the agent writing it has loaded `workflow-implementation`, whatever other dmf skill it loaded, since code that awaits runs a workflow or the I/O at its edge |
 | A turn that changed C# is about to end | It is sent back once, with the files, to run `dmf:fp-reviewer`, and `dmf:dmf-reviewer` where types, workflows or DTOs changed |
 | `/code-review` runs | It also runs both dmf reviewers on the C# in scope and reports their findings that hold |
 | `/simplify` runs | It also runs `dmf:fp-reviewer` on the changed C# and applies its refactors that hold |
@@ -58,6 +59,9 @@ Function hooks hold C# work to the skills, instead of leaving it to whether a sk
 - A skill counts for the agent that loaded it: the main conversation, a subagent, or a fork of an agent that had one.
   A fresh subagent loads its own, so code it writes is written with the guidance too.
 - `domain-discovery` alone does not open the gate: it shapes a design, not code.
+- A workflow never skips `workflow-implementation`.
+  The routing section sends a workflow to it even when the workflow's types come in the same file, and `domain-modeling` hands a workflow's body on to it.
+  Code that awaits needs it loaded; `await` or `async` in a comment, and a contract that only returns a `Task`, do not count.
 - Code with little domain logic in it, such as an editor window, a MonoBehaviour or a test, still goes through the closest skill.
 - Writes are seen through `Edit`, `Write`, Serena's editing tools, and a shell command that redirects into a `.cs` file, `tee`s into one, edits one in place with `sed -i`, or writes one with `Set-Content`, `Add-Content` or `Out-File`.
 - Generated C# (`*.g.cs`, `*.designer.cs`, `*.generated.cs`) and build output under `obj/` and `bin/` are not held.
@@ -70,6 +74,8 @@ Limits:
 
 - A file a shell command writes some other way, such as `cp`, `mv` or a script, is not seen.
 - A Serena `replace_in_files` call over the whole project, with no `.cs` path or glob, is not seen.
+- A workflow that does not await is sent to `workflow-implementation` by the routing section alone.
+  So is code a shell command writes, since the hook sees the file it names, not the code it writes.
 - The hooks are built on function hooks, an early-access Claude Code API, and were written and tested on Claude Code 2.1.314.
 
 ## Reviewer Log
@@ -180,6 +186,46 @@ A run of the whole suite takes about four minutes and costs about $9: $6 for the
 - Every run with `dmf` ran both reviewers.
 - Every run's C# compiled with no warnings, built outside the runner from its `.cs` files and the fixture's project file.
 
+### Second Measurement
+
+The first measurement's two gaps led to three changes:
+
+- `workflow-implementation` opens with a step that turns the raw request into constrained types, even where the codebase keeps its ids as strings.
+- The gate refuses C# that awaits until the agent has loaded `workflow-implementation`, and `domain-modeling` hands a workflow's body on to it.
+- Both skills' descriptions say a use case implemented end to end needs `workflow-implementation`, beside `domain-modeling` when it needs new types too.
+
+A run of the whole suite after them, on 2026-11-16 with the same models, showed a cost.
+With `workflow-implementation` loaded in every `checkout` run, the request was checked first in 3 of 3, but the rules apart from I/O fell from 3 of 3 to 1 of 3.
+Two runs checked a rule between two lookups, as the book's `validateOrder` calls its dependencies inside the step, and one said why: "each lookup waits until the rules before it have passed".
+A third wrote its own `Result` as a struct, whose `default` holds no outcome.
+Two more changes followed:
+
+- `workflow-implementation` says to read first, decide in a pure function of what was read, and write last: the book's "push persistence to the edges".
+- `references/csharp-mapping.md` says a union written by hand is a closed record hierarchy, never a struct.
+
+The tables are from the runs after all five changes: `checkout` for about $7 ($4.18 for the agents and $2.44 for the judge), and `standing` for about $3.
+
+| Case | With `dmf` | Without | Δ |
+|---|---|---|---|
+| `checkout` | 1.00 | 0.53 | +0.47 |
+| `standing` | 0.78 | 0.56 | +0.22 |
+
+| Grader | With `dmf` | Without |
+|---|---|---|
+| `checkout`: one refusal case per rule | 3 of 3 | 3 of 3 |
+| `checkout`: one outcome | 3 of 3 | 2 of 3 |
+| `checkout`: the request checked into typed values first | 3 of 3 | 0 of 3 |
+| `checkout`: the rules apart from I/O | 3 of 3 | 0 of 3 |
+| `checkout`: the rules as written | 3 of 3 | 3 of 3 |
+| `standing`: one choice | 3 of 3 | 3 of 3 |
+| `standing`: no way to build a bad one | 3 of 3 | 2 of 3 |
+| `standing`: the import refuses as a value | 1 of 3 | 0 of 3 |
+
+- Every `checkout` run with `dmf` loaded `workflow-implementation`, against 1 of 3 before, and each one validated the request, read, decided, then saved.
+- `standing` did not move: the two runs that failed the import still throw on a suspended line.
+  This is the gap the suite shows next.
+- Every verdict was unanimous, every failed one held when read against the code, and every run's C# compiled with no warnings.
+
 ### Reading the Scores
 
 A judge's three votes on one file are not independent checks of the rubric.
@@ -198,6 +244,7 @@ In the runs above, 1 verdict of 48 had a split vote, and every failed verdict re
 The suite follows pstack's eval playbook as far as the runner allows.
 
 - The prompts read as a person's request, and nothing in the project's files mentions testing.
+- The skills' examples come from the book's orders and invoices, never from the suite's lending service, so a skill change that raises a score is not teaching to the test.
 - The runner hides the suite's folder from the agent, under the read grant too, so it never sees a rubric or another case.
 - Nothing of the person's loads in a run: no `CLAUDE.md`, settings, memory or other plugins.
 - The judge runs on another model than the agents, and each judge call sees one file and one rubric.
