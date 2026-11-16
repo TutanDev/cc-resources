@@ -45,5 +45,6 @@ An asymmetry is a finding unless the use cases differ for a domain reason you ca
 2. **Findings** - per `review-findings.md`, `lens: chains`, most severe first; statuses per the profile.
 3. **Coverage** - use cases validated, failed, and not validated (with the reason).
 4. **Not checked** - for example calls resolved at runtime through reflection or scene wiring.
+   When you suspect a violation there, report it as a runtime finding, unproven, with the run that would show the call, as the Proof part of `review-findings.md` says.
 
 When the caller asks for structured output, put the same content in it.

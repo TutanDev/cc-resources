@@ -9,7 +9,31 @@ The three plugins keep identical copies of this contract.
 - A finding about code cites `file:line` and quotes the lines, read from the file in this session.
 - A finding about a design or a feature plan cites the file and section (`04-domain-model.md §2`, `03-layered-architecture.md §4`, `cc-docs/plans/discount-codes.md §4.1`).
 - Documentation, comments and commit messages are claims to verify, not evidence.
-- If a rule cannot be checked statically (runtime wiring, reflection, scene references), list it under "Not checked" instead of guessing.
+- A rule you could not check at all goes under "Not checked".
+  A problem you suspect but reading cannot settle (runtime wiring, reflection, scene references, threading) is a runtime finding, reported unproven, as Proof says.
+
+## Proof
+
+Each finding says what kind of claim it makes and how far its proof got, because reading proves what the text says, not what the code does when it runs.
+
+- A **structural** claim is settled by the text: a type, a signature, a dependency or a call as written, a layer, a name, a missing union case, a mutable field, a plan section that is missing or contradicts another.
+- A **runtime** claim is about what happens when the code runs, which the text alone does not settle: the order or timing of calls, the thread a call runs on, the value that arrives, what a library, serializer, engine or platform does, how fast something is, or whether a path is reached through reflection, wiring, scene references or events.
+  When in doubt, the claim is runtime.
+
+The proof levels, weakest first:
+
+| Proof | Meaning |
+|---|---|
+| `said` | Stated, with nothing cited; never enough |
+| `cited` | The `file:line` or section, read in this session and quoted in `evidence` |
+| `traced` | The path walked step by step, each step cited, showing the bad case is reached |
+| `ran` | A script, test or command against the real code showed it; `run` gives the command and its output |
+| `reproduced` | Reproduced in the running app; `run` gives the steps and what was observed |
+
+A structural claim is proven at `cited`.
+A runtime claim is proven only at `ran` or `reproduced`; below that it is **unproven**, and `run` names the smallest command or app steps that would prove or refute it, so whoever can run it settles it.
+A reviewer that cannot run anything still reports a runtime problem it suspects, unproven, rather than leaving it out or passing it off as structural.
+A skeptic checks the proof as well as the evidence: a runtime finding below `ran` is unproven, not confirmed, and a `ran` without the command and its output counts as `said`.
 
 ## Status
 
@@ -48,6 +72,9 @@ Judge severity by impact in context: the same rule can be critical in a core use
 | `evidence` | The quoted code, design or plan text, at most 8 lines |
 | `problem` | One or two sentences: what is wrong and why it matters |
 | `fix` | A concrete change: the target type, layer, signature or code shape |
+| `claim` | `structural` or `runtime`, as Proof defines them |
+| `proof` | `said`, `cited`, `traced`, `ran`, or `reproduced` |
+| `run` | For a runtime claim, the command or app steps that prove or refute it, then the output when it ran; empty for a structural claim |
 | `profileRef` | The profile entry for `debt` or `approved`; empty otherwise |
 | `occurrences` | Other `file:line` locations of the same issue, so a repeated pattern is one finding |
 
@@ -61,9 +88,12 @@ When the caller does not ask for structured output, write each finding as:
 > var score = _scoringEngine.Score(input);
 
 **Problem:** ...
+**Proof:** structural, cited.
 **Fix:** ...
 **Also at:** `Assets/Foo/BarView.cs:17`
 ```
+
+A runtime finding's Proof line also gives its run, and says unproven below `ran`: `**Proof:** runtime, traced, unproven: run <command or steps> and look for <the output that would show it>.`
 
 End every review with:
 

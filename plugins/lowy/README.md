@@ -62,6 +62,9 @@ Multi-agent runs that fan out reviewers in parallel, try to refute every finding
 | `/lowy:design-check <topic> [--thorough]` | Check a design directory before implementing it: call chains, Don'ts, a change simulation per volatility axis, the domain model, staleness |
 
 `--thorough` verifies each finding with three independent skeptics instead of one.
+Every finding says whether it is structural, which reading proves, or a runtime claim about what the code does when it runs, which only a run proves.
+A skeptic answers unproven for a runtime claim no run has proven, and the report lists those apart, each with the command that would settle it, so they are not counted as violations until it runs.
+`references/review-findings.md` holds the proof levels, from said to reproduced in the running app.
 `--out=<folder>` writes the report somewhere other than `cc-docs/reviews/`.
 
 A workflow's agents read their plugins' reference files, which Claude Code installs under `~/.claude/plugins/`, and write the report.

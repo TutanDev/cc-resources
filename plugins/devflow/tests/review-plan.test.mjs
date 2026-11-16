@@ -40,8 +40,8 @@ const crowdedLines = markdown => {
   return crowded
 }
 
-const finding = (id, lens, severity, status = 'violation') => ({
-  id, lens, rule: 'r', status, severity, file: 'plan.md §4.1', lines: '', evidence: 'e', problem: 'p', fix: 'f', profileRef: '', occurrences: [],
+const finding = (id, lens, severity, status = 'violation', more = {}) => ({
+  id, lens, rule: 'r', status, severity, file: 'plan.md §4.1', lines: '', evidence: 'e', problem: 'p', fix: 'f', claim: 'structural', proof: 'cited', run: '', profileRef: '', occurrences: [], ...more,
 })
 const ruling = (ids, kind, severity, sections = ['§4.1']) => ({ findings: ids, ruling: kind, severity, reason: 'x', sections: kind === 'accept' ? sections : [], change: kind === 'accept' ? 'c' : '', question: kind === 'ask' ? 'q?' : '' })
 const isSerious = f => f.severity === 'critical' || f.severity === 'major'
@@ -223,6 +223,7 @@ The findings:
 - **L-1** (lowy; major): r, at \`plan.md §4.1\`.
   - **Evidence:** e
   - **Problem:** p
+  - **Proof:** structural, cited
   - **Verification:** confirmed: checked
 
 ### Rejected
@@ -297,7 +298,7 @@ lowy ok
   assert.match(minorOnly.call('revise round 2').prompt, /The judge's rulings, in order:\n\nNo critical or major finding survived verification\.$/)
   const report = minorOnly.report(2)
   assert.match(report, /\nNo critical or major finding survived verification\.\nThe 2 minor findings and nits below have no ruling: a re-review round rules only on critical and major findings\.\n/)
-  assert.match(report, /\n### Findings Without a Ruling\n\n- \*\*R2-D-3\*\* \(dmf; minor\): r, at `plan\.md §4\.1`\.\n {2}- \*\*Evidence:\*\* e\n {2}- \*\*Problem:\*\* p\n {2}- \*\*Proposed fix:\*\* f\n {2}- \*\*Verification:\*\* not verified \(minor\)\n- \*\*R2-D-2\*\* \(dmf; nit\)/, 'most severe first')
+  assert.match(report, /\n### Findings Without a Ruling\n\n- \*\*R2-D-3\*\* \(dmf; minor\): r, at `plan\.md §4\.1`\.\n {2}- \*\*Evidence:\*\* e\n {2}- \*\*Problem:\*\* p\n {2}- \*\*Proof:\*\* structural, cited\n {2}- \*\*Proposed fix:\*\* f\n {2}- \*\*Verification:\*\* not verified \(minor\)\n- \*\*R2-D-2\*\* \(dmf; nit\)/, 'most severe first')
   assert.match(minorOnly.result, /\nRound 2 \(lenses dmf, plan\): 2 findings kept, 0 refuted; none critical or major, so nothing needed a ruling\. 2 minor findings and nits are in the report, without a ruling\.\n- Report: [^\n]+\n- Plan: the round is logged in §9, at revision 3\.\n/)
   assert.match(minorOnly.result, /ask for their approval of the plan/)
 
@@ -614,6 +615,62 @@ console.log('ok', 're-review lenses')
   assert.ok(off.logs.some(l => /^Structure check: no result came with the plan, so the devflow hooks are not running/.test(l)))
   assert.match(r.call('load').prompt, /13\. structure and structureChecked: the devflow hooks add the plan structure check's result to a Read of the plan/)
   console.log('ok', r.name, '/ passes / no hooks')
+}
+
+// 16. Proof: a runtime claim no run has proven goes to the judge marked unproven, whatever the skeptic says, and so does a
+// finding the skeptic answers unproven; the report shows every finding's proof, and the run of a runtime one.
+{
+  const traced = finding('L-1', 'lowy', 'major', 'violation', { claim: 'runtime', proof: 'traced', run: 'dotnet test --filter OrderManagerTests.SavesOnce' })
+  const ran = finding('D-1', 'dmf', 'critical', 'violation', { claim: 'runtime', proof: 'ran', run: 'dotnet test --filter PricingTests: Expected 45.00, got 45.01' })
+  const doubted = finding('P-1', 'plan', 'major')
+  let judged = []
+  const r = await run('proof', {
+    reviews: { lowy: [traced], dmf: [ran], plan: [doubted] },
+    verdict: f => (f.id === 'P-1' ? 'unproven' : 'confirmed'),
+    judge: kept => {
+      judged = kept
+      return { rulings: [ruling(['L-1'], 'ask', 'major'), ruling(['D-1'], 'accept', 'critical', ['§5.1']), ruling(['P-1'], 'ask', 'major')], conflicts: [], notes: '', summary: 's' }
+    },
+  })
+  const unprovenIds = judged.filter(f => f.unproven).map(f => f.id).sort()
+  assert.deepEqual(unprovenIds, ['L-1', 'P-1'], 'a traced runtime claim and a finding the skeptic doubts reach the judge unproven')
+  assert.equal(judged.find(f => f.id === 'P-1').verification, 'unproven')
+  assert.equal(judged.find(f => f.id === 'P-1').claim, 'runtime', 'a skeptic answers unproven only for a claim it judges runtime')
+  assert.equal(judged.find(f => f.id === 'D-1').unproven, undefined, 'a runtime claim proven by a run is not marked')
+  assert.match(r.call('judge round 1').prompt, /A finding with `unproven: true` is a runtime claim no run has proven: accept it only when its change is right whether or not the claim holds; otherwise ask, with its `run` as the question's probe, or reject it\./)
+  const skeptic = r.call('verify lowy').prompt
+  assert.match(skeptic, /Check the proof, as the Proof part of the review findings contract says/)
+  assert.match(skeptic, /When in doubt, refute, unless only a run could settle the doubt: then answer unproven\./)
+  const report = r.report(1)
+  assert.match(report, /\n2 of the kept findings are runtime claims no run has proven \(L-1, P-1\), so they are marked unproven\.\n/)
+  assert.match(report, /\n {2}- \*\*Proof:\*\* runtime, traced, unproven; run: dotnet test --filter OrderManagerTests\.SavesOnce\n/)
+  assert.match(report, /\n {2}- \*\*Proof:\*\* runtime, ran; run: dotnet test --filter PricingTests: Expected 45\.00, got 45\.01\n/)
+  assert.match(report, /\n {2}- \*\*Proof:\*\* runtime, cited, unproven\n {2}- \*\*Verification:\*\* unproven: checked\n/)
+  console.log('ok', r.name)
+}
+
+// 17. Three skeptics per lens: a majority upholds, at least half refuting refutes, and anything else is unproven.
+{
+  const cases = [
+    [['confirmed', 'confirmed', 'unproven'], 'confirmed'],
+    [['confirmed', 'unproven', 'refuted'], 'unproven'],
+    [['refuted', 'refuted', 'unproven'], 'refuted'],
+  ]
+  for (const [votes, outcome] of cases) {
+    let vote = 0
+    let judged = []
+    const r = await run(`votes ${votes}`, {
+      args: { plan: 'x', thorough: true, rounds: 1 },
+      reviews: { lowy: [finding('L-1', 'lowy', 'major')] },
+      verdict: () => votes[vote++ % 3],
+      judge: kept => { judged = kept; return { rulings: kept.map(f => ruling([f.id], 'reject', f.severity)), conflicts: [], notes: '', summary: 's' } },
+    })
+    assert.equal(vote, 3, 'three skeptics answered')
+    const l1 = judged.find(f => f.id === 'L-1')
+    if (outcome === 'refuted') assert.match(r.report(1), /\n### Refuted in Verification\n\n- \*\*L-1\*\* \(lowy\):/)
+    else assert.equal(l1.verification, outcome, `votes ${votes.join(', ')} leave L-1 ${outcome}`)
+  }
+  console.log('ok three skeptics settle a finding')
 }
 
 console.log('review-plan: all control-flow tests passed')

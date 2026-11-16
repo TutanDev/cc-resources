@@ -56,9 +56,11 @@ const INPUTS = {
 
 // ---------- schemas ----------
 const STRINGS = { type: 'array', items: { type: 'string' } }
+const CLAIM = { type: 'string', enum: ['structural', 'runtime'] }
+const PROOF = { type: 'string', enum: ['said', 'cited', 'traced', 'ran', 'reproduced'] }
 const FINDING = {
   type: 'object',
-  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'profileRef', 'occurrences'],
+  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'claim', 'proof', 'run', 'profileRef', 'occurrences'],
   properties: {
     id: { type: 'string' },
     lens: { type: 'string', enum: ['lowy', 'chains', 'dmf', 'change'] },
@@ -70,6 +72,9 @@ const FINDING = {
     evidence: { type: 'string' },
     problem: { type: 'string' },
     fix: { type: 'string' },
+    claim: CLAIM,
+    proof: PROOF,
+    run: { type: 'string', description: 'for a runtime claim, the command or app steps that prove or refute it, then the output when it ran; empty for a structural claim' },
     profileRef: { type: 'string' },
     occurrences: STRINGS,
   },
@@ -109,7 +114,7 @@ const VERDICT = {
   type: 'object',
   required: ['verdict', 'status', 'severity', 'reason'],
   properties: {
-    verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'refuted'] },
+    verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'unproven', 'refuted'] },
     status: { type: 'string', enum: ['violation', 'debt', 'approved'] },
     severity: { type: 'string', enum: ['critical', 'major', 'minor', 'nit'] },
     reason: { type: 'string' },
@@ -275,28 +280,43 @@ const results = await pipeline(
 Design directory: \`${dir}\`. ${profileNote}
 Re-read the cited design text, then the rule in your references (including the relaxed rules).
 Refute it if the evidence is not in the design, the rule does not apply, or the design handles it elsewhere (another section, another file).
-Answer adjusted with corrected status or severity if it is real but mis-rated. When in doubt, refute.
+Check the proof, as the Proof part of the review findings contract says: a finding that turns on what code, a library, a serializer or the platform does when it runs is a runtime claim, whatever its \`claim\` says, and reading cannot prove it.
+Answer unproven when the evidence holds but the finding is such a claim and no run has proven it, and say in the reason what run would settle it.
+Answer adjusted with corrected status or severity if it is real but mis-rated. When in doubt, refute, unless only a run could settle the doubt: then answer unproven.
 ${vi > 0 ? `You are independent verifier #${vi + 1}.` : ''}
 Finding (JSON): ${JSON.stringify(f)}`,
         { agentType: c.agentType, schema: VERDICT, phase: 'Verify', label: `verify ${f.id}${votes > 1 ? `.${vi + 1}` : ''}` },
       )))).filter(Boolean)
       if (ballots.length === 0) return { ...f, verification: 'unverified' }
-      const upheld = ballots.filter(b => b.verdict !== 'refuted')
-      if (upheld.length * 2 <= ballots.length) return { ...f, verification: 'refuted', reason: ballots.map(b => b.reason).join(' | ') }
-      return { ...f, status: upheld[0].status, severity: upheld[0].severity, verification: upheld[0].verdict, reason: upheld[0].reason }
+      return settle(f, ballots)
     }))
     return { key: c.key, res, findings: findings.map((f, i) => f || { ...res.findings[i], verification: 'unverified' }) }
   },
 )
+
+// More than half upholding a finding keeps it; at least half refuting it refutes it; otherwise its evidence held but
+// no run proved it, so it is unproven: a skeptic answers unproven only for a claim it judges runtime.
+function settle(f, ballots) {
+  const upheld = ballots.filter(b => b.verdict === 'confirmed' || b.verdict === 'adjusted')
+  if (upheld.length * 2 > ballots.length) return { ...f, status: upheld[0].status, severity: upheld[0].severity, verification: upheld[0].verdict, reason: upheld[0].reason }
+  if (ballots.filter(b => b.verdict === 'refuted').length * 2 >= ballots.length) return { ...f, verification: 'refuted', reason: ballots.map(b => b.reason).join(' | ') }
+  const doubts = ballots.filter(b => b.verdict === 'unproven')
+  return { ...f, claim: 'runtime', status: doubts[0].status, severity: doubts[0].severity, verification: 'unproven', reason: doubts.map(b => b.reason).join(' | ') }
+}
+
+// A runtime claim is proven only by a run, whatever its verdict: the review findings contract, Proof.
+const unproven = f => f.verification === 'unproven' || (f.claim === 'runtime' && f.proof !== 'ran' && f.proof !== 'reproduced')
 
 // ---------- Report ----------
 const done = results.filter(Boolean)
 const failed = done.filter(r => !r.res).map(r => r.key)
 if (failed.length) log(`Checks that failed and are missing from the report: ${failed.join(', ')}`)
 const all = done.flatMap(r => r.findings)
-const kept = all.filter(f => f.verification !== 'refuted')
 const refuted = all.filter(f => f.verification === 'refuted')
-log(`${all.length} findings: ${kept.length} kept, ${refuted.length} refuted.`)
+const doubtful = all.filter(f => f.verification !== 'refuted' && unproven(f))
+const kept = all.filter(f => f.verification !== 'refuted' && !unproven(f))
+const counts = `${kept.length} findings kept, ${doubtful.length} unproven, ${refuted.length} refuted`
+log(`${all.length} findings: ${kept.length} kept, ${doubtful.length} unproven, ${refuted.length} refuted.`)
 
 phase('Report')
 const report = await agent(
@@ -315,8 +335,10 @@ Report structure:
 3. Stale files first, if any: what to regenerate, in pipeline order.
 4. Call chains: one line per core use case with its verdict.
 5. Change simulation: one line per axis with the services that change and the verdict.
-6. Findings (❌, then ⚠️ and ✅), most severe first: severity mark (🔴 critical, 🟠 major, 🟡 minor, ⚪ nit), id, rule, file and section, quoted evidence, problem, fix.
-7. Refuted during verification: one line each.
+6. Findings (❌, then ⚠️ and ✅), most severe first: severity mark (🔴 critical, 🟠 major, 🟡 minor, ⚪ nit), id, rule, file and section, quoted evidence, problem, its proof (claim and level), fix.
+7. Unproven: the runtime findings no run has proven, most severe first, each with its claimed severity, id, rule, file and section, quoted evidence, problem, and the run that would settle it (its \`run\`, or what the skeptic's reason names).
+   Say that they do not count against the verdict until a run proves them.
+8. Refuted during verification: one line each.
 
 Check summaries (JSON):
 ${JSON.stringify(done.filter(r => r.res).map(r => ({ check: r.key, summary: r.res.summary })), null, 1)}
@@ -324,11 +346,14 @@ ${JSON.stringify(done.filter(r => r.res).map(r => ({ check: r.key, summary: r.re
 Findings kept (JSON):
 ${JSON.stringify(kept, null, 1)}
 
+Findings unproven (JSON):
+${JSON.stringify(doubtful, null, 1)}
+
 Findings refuted (JSON):
 ${JSON.stringify(refuted.map(f => ({ id: f.id, rule: f.rule, file: f.file, reason: f.reason })), null, 1)}`,
   { schema: REPORT, label: 'report' },
 )
 
-if (!report) return `design-check: the report agent failed. ${kept.length} findings kept, ${refuted.length} refuted; relaunch to retry from cached results.`
-if (!report.written) return `design-check: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${kept.length} findings kept, ${refuted.length} refuted.`
+if (!report) return `design-check: the report agent failed. ${counts}; relaunch to retry from cached results.`
+if (!report.written) return `design-check: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${counts}.`
 return `${report.summary.trim()}\n\nReport: \`${reportFile}\``

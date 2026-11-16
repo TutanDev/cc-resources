@@ -101,9 +101,11 @@ function lensesFor(sections) {
 const STRINGS = { type: 'array', items: { type: 'string' } }
 const SEVERITY = { type: 'string', enum: ['critical', 'major', 'minor', 'nit'] }
 const STATUS = { type: 'string', enum: ['violation', 'debt', 'approved'] }
+const CLAIM = { type: 'string', enum: ['structural', 'runtime'] }
+const PROOF = { type: 'string', enum: ['said', 'cited', 'traced', 'ran', 'reproduced'] }
 const FINDING = {
   type: 'object',
-  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'profileRef', 'occurrences'],
+  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'claim', 'proof', 'run', 'profileRef', 'occurrences'],
   properties: {
     id: { type: 'string' },
     lens: { type: 'string', enum: ['lowy', 'chains', 'dmf', 'plan'] },
@@ -115,13 +117,16 @@ const FINDING = {
     evidence: { type: 'string' },
     problem: { type: 'string' },
     fix: { type: 'string' },
+    claim: CLAIM,
+    proof: PROOF,
+    run: { type: 'string', description: 'for a runtime claim, the command or app steps that prove or refute it, then the output when it ran; empty for a structural claim' },
     profileRef: { type: 'string' },
     occurrences: STRINGS,
   },
 }
 const LOAD = {
   type: 'object',
-  required: ['repoRoot', 'planPath', 'feature', 'today', 'status', 'revision', 'profilePath', 'sources', 'designDir', 'stale', 'useCases', 'missing', 'openQuestions', 'lastRound', 'legacyDocs', 'note'],
+  required: ['repoRoot', 'planPath', 'feature', 'today', 'status', 'revision', 'profilePath', 'sources', 'designDir', 'stale', 'useCases', 'missing', 'openQuestions', 'lastRound', 'legacyDocs', 'structure', 'structureChecked', 'note'],
   properties: {
     repoRoot: { type: 'string' },
     planPath: { type: 'string', description: 'repository-relative path of the plan; empty if no plan was found' },
@@ -162,7 +167,7 @@ const VERDICTS = {
         required: ['id', 'verdict', 'status', 'severity', 'reason'],
         properties: {
           id: { type: 'string', description: 'the id of the finding, as given' },
-          verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'refuted'] },
+          verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'unproven', 'refuted'] },
           status: STATUS,
           severity: SEVERITY,
           reason: { type: 'string' },
@@ -239,6 +244,19 @@ const clip = (text, max) => {
   const space = cut.search(/\s\S*$/)
   return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:(-]+$/, '')}...`
 }
+
+// More than half upholding a finding keeps it; at least half refuting it refutes it; otherwise its evidence held but
+// no run proved it, so it is unproven: a skeptic answers unproven only for a claim it judges runtime.
+function settle(f, answers) {
+  const upheld = answers.filter(v => v.verdict === 'confirmed' || v.verdict === 'adjusted')
+  if (upheld.length * 2 > answers.length) return { ...f, status: upheld[0].status, severity: upheld[0].severity, verification: upheld[0].verdict, reason: upheld[0].reason }
+  if (answers.filter(v => v.verdict === 'refuted').length * 2 >= answers.length) return { ...f, verification: 'refuted', reason: answers.map(v => v.reason).join(' | ') }
+  const doubts = answers.filter(v => v.verdict === 'unproven')
+  return { ...f, claim: 'runtime', status: doubts[0].status, severity: doubts[0].severity, verification: 'unproven', reason: doubts.map(v => v.reason).join(' | ') }
+}
+
+// A runtime claim is proven only by a run, whatever its verdict: the review findings contract, Proof.
+const unproven = f => f.verification === 'unproven' || (f.claim === 'runtime' && f.proof !== 'ran' && f.proof !== 'reproduced')
 
 // Reviewers number their own findings; make every id unique.
 function uniqueIds(findings) {
@@ -521,7 +539,9 @@ ${profileNote}
 For each finding, re-read the plan section it cites, then the rest of the plan: it may already be handled in another section or a later phase. Open the code it cites.
 Then re-read its rule in your references, including the relaxed rules.
 Refute it if the evidence is not in the plan or the code, the rule does not apply, or the plan handles it elsewhere (say where).
-Answer adjusted, with the corrected status or severity, if it is real but mis-rated. When in doubt, refute.
+Check the proof, as the Proof part of the review findings contract says: a finding that turns on what the code, a library or the platform does when it runs is a runtime claim, whatever its \`claim\` says, and reading cannot prove it; a \`ran\` or \`reproduced\` proof without the command and its output in \`run\` counts as \`said\`.
+Answer unproven when the evidence holds but the finding is such a claim and no run has proven it, and say in the reason what run would settle it.
+Answer adjusted, with the corrected status or severity, if it is real but mis-rated. When in doubt, refute, unless only a run could settle the doubt: then answer unproven.
 Judge each finding on its own, and return one verdict per finding, with its id.${vi > 0 ? `\nYou are independent verifier #${vi + 1}; reach your own conclusions.` : ''}
 Findings (JSON): ${JSON.stringify(serious)}`,
       { agentType: LENSES[check.lens].agentType, schema: VERDICTS, phase: 'Verify', label: `verify ${check.key}${votes > 1 ? ` #${vi + 1}` : ''}${round > 1 ? ` (round ${round})` : ''}`, ...ROLES.verify },
@@ -530,9 +550,7 @@ Findings (JSON): ${JSON.stringify(serious)}`,
       if (!serious.includes(f)) return notVerified(f)
       const answers = ballots.map(b => (b.verdicts || []).find(v => v.id === f.id)).filter(Boolean)
       if (answers.length === 0) return { ...f, verification: 'unverified', reason: 'no verifier answered' }
-      const upheld = answers.filter(v => v.verdict !== 'refuted')
-      if (upheld.length * 2 <= answers.length) return { ...f, verification: 'refuted', reason: answers.map(v => v.reason).join(' | ') }
-      return { ...f, status: upheld[0].status, severity: upheld[0].severity, verification: upheld[0].verdict, reason: upheld[0].reason }
+      return settle(f, answers)
     })
   }
 
@@ -550,14 +568,15 @@ Findings (JSON): ${JSON.stringify(serious)}`,
   const done = results.filter(Boolean)
   const failed = done.filter(r => !r.res).map(r => r.key)
   if (failed.length) log(`Reviews that failed and are missing: ${failed.join(', ')}.`)
-  const all = uniqueIds(done.flatMap(r => r.findings))
+  const all = uniqueIds(done.flatMap(r => r.findings)).map(f => (unproven(f) ? { ...f, unproven: true } : f))
   const kept = all.filter(f => f.verification !== 'refuted')
   const refuted = all.filter(f => f.verification === 'refuted')
+  const doubtful = kept.filter(f => f.unproven)
   // A re-review round rules only on critical and major findings; its minor findings and nits go to the report.
   const toJudge = rereview ? kept.filter(isSerious) : kept
   const deferred = rereview ? kept.filter(f => !isSerious(f)) : []
   const summaries = done.filter(r => r.res).map(r => ({ check: r.key, summary: r.res.summary }))
-  log(`${all.length} findings, ${kept.length} kept, ${refuted.length} refuted.${deferred.length ? ` ${deferred.length} minor findings and nits go to the report without a ruling.` : ''}`)
+  log(`${all.length} findings, ${kept.length} kept${doubtful.length ? ` (${doubtful.length} unproven)` : ''}, ${refuted.length} refuted.${deferred.length ? ` ${deferred.length} minor findings and nits go to the report without a ruling.` : ''}`)
 
   // ---------- Judge (barrier: rulings need every finding, to merge them and settle conflicts) ----------
   let judged = { rulings: [], conflicts: [], notes: '', summary: '' }
@@ -567,6 +586,7 @@ Findings (JSON): ${JSON.stringify(serious)}`,
       `Rule on the findings of review round ${round} of the feature plan \`${plan}\`.
 ${profileNote}
 Each finding's \`verification\` says whether it survived adversarial verification, was adjusted, or was not verified because it is minor.
+A finding with \`unproven: true\` is a runtime claim no run has proven: accept it only when its change is right whether or not the claim holds; otherwise ask, with its \`run\` as the question's probe, or reject it.
 ${round > 1 ? 'Earlier rounds\' rulings and the user\'s answers are in the plan\'s §9; do not overturn an earlier ruling without new evidence.' : ''}
 Reviewer summaries (JSON):
 ${JSON.stringify(summaries, null, 1)}
@@ -609,6 +629,7 @@ ${renderRulings(rulings, lensOf, clean)}`
     item(`**${f.id}** (${f.lens}; ${f.severity}):`, `${cell(f.rule, 120)}, at ${where(f)}.`, indent),
     field('Evidence', quoted(f.evidence), `${indent}  `),
     field('Problem', f.problem, `${indent}  `),
+    field('Proof', `${f.claim}, ${f.proof}${f.unproven ? ', unproven' : ''}${f.run ? `; run: ${f.run}` : ''}`, `${indent}  `),
     withFix ? field('Proposed fix', f.fix, `${indent}  `) : '',
     field('Verification', `${f.verification}${f.reason ? `: ${f.reason}` : ''}`, `${indent}  `),
   ].filter(Boolean).join('\n')
@@ -628,6 +649,7 @@ ${renderRulings(rulings, lensOf, clean)}`
   ].filter(Boolean)
   const outcome = [
     `${all.length} ${all.length === 1 ? 'finding' : 'findings'} from the ${roundLenses.join(', ')} ${roundLenses.length === 1 ? 'lens' : 'lenses'}: ${kept.length} kept, ${refuted.length} refuted in verification.`,
+    doubtful.length ? `${doubtful.length} of the kept findings ${doubtful.length === 1 ? 'is a runtime claim' : 'are runtime claims'} no run has proven (${doubtful.map(f => f.id).join(', ')}), so ${doubtful.length === 1 ? 'it is' : 'they are'} marked unproven.` : '',
     toJudge.length === 0 ? clean
       : judged ? `The judge accepted ${count('accept')} (${serious.length} critical or major), rejected ${count('reject')}, and sent ${count('ask')} to the user.`
         : 'The judge failed, so nothing was ruled.',

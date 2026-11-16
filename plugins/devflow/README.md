@@ -111,6 +111,7 @@ The roles are independent by construction:
 
 - The reviewers see the plan and the code, never the writer's reasoning or each other's findings.
 - A finding reaches the judge only after a skeptic, prompted to refute it, failed to.
+- Reading proves what the plan and the code say, not what the code does when it runs: a runtime claim no run has proven reaches the judge marked unproven, and the judge asks with its run as the question's probe, rather than changing the plan on a guess.
 - The judge rules but never edits: the writer applies the rulings, so no change enters the plan without a ruling behind it.
 - When lenses disagree, Löwy decides where things live (services, layers, call chains), DMF decides what lives inside them (types, signatures, errors), and the delivery lens decides how the work is cut and checked.
 - Only you approve a plan.

@@ -58,9 +58,11 @@ const GROUP_SIZE = 6
 
 // ---------- schemas ----------
 const STRINGS = { type: 'array', items: { type: 'string' } }
+const CLAIM = { type: 'string', enum: ['structural', 'runtime'] }
+const PROOF = { type: 'string', enum: ['said', 'cited', 'traced', 'ran', 'reproduced'] }
 const FINDING = {
   type: 'object',
-  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'profileRef', 'occurrences'],
+  required: ['id', 'lens', 'rule', 'status', 'severity', 'file', 'lines', 'evidence', 'problem', 'fix', 'claim', 'proof', 'run', 'profileRef', 'occurrences'],
   properties: {
     id: { type: 'string' },
     lens: { type: 'string', enum: ['lowy', 'chains', 'dmf', 'fp'] },
@@ -72,6 +74,9 @@ const FINDING = {
     evidence: { type: 'string' },
     problem: { type: 'string' },
     fix: { type: 'string' },
+    claim: CLAIM,
+    proof: PROOF,
+    run: { type: 'string', description: 'for a runtime claim, the command or app steps that prove or refute it, then the output when it ran; empty for a structural claim' },
     profileRef: { type: 'string' },
     occurrences: STRINGS,
   },
@@ -119,7 +124,7 @@ const VERDICTS = {
         required: ['id', 'verdict', 'status', 'severity', 'reason'],
         properties: {
           id: { type: 'string' },
-          verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'refuted'] },
+          verdict: { type: 'string', enum: ['confirmed', 'adjusted', 'unproven', 'refuted'] },
           status: { type: 'string', enum: ['violation', 'debt', 'approved'] },
           severity: { type: 'string', enum: ['critical', 'major', 'minor', 'nit'] },
           reason: { type: 'string' },
@@ -181,14 +186,27 @@ function tally(group, ballots) {
   return group.map(f => {
     const answers = ballots.filter(Boolean).flatMap(b => b.verdicts).filter(v => v.id === f.id)
     if (answers.length === 0) return { ...f, verification: 'unverified', reason: 'no verifier answered' }
-    const upheld = answers.filter(v => v.verdict !== 'refuted')
-    if (upheld.length * 2 <= answers.length) {
-      return { ...f, verification: 'refuted', reason: answers.map(v => v.reason).join(' | ') }
-    }
-    const v = upheld[0]
-    return { ...f, status: v.status, severity: v.severity, verification: v.verdict, reason: v.reason }
+    return settle(f, answers)
   })
 }
+
+// More than half upholding a finding keeps it; at least half refuting it refutes it; otherwise its evidence held but
+// no run proved it, so it is unproven: a skeptic answers unproven only for a claim it judges runtime.
+function settle(f, answers) {
+  const upheld = answers.filter(v => v.verdict === 'confirmed' || v.verdict === 'adjusted')
+  if (upheld.length * 2 > answers.length) {
+    const v = upheld[0]
+    return { ...f, status: v.status, severity: v.severity, verification: v.verdict, reason: v.reason }
+  }
+  if (answers.filter(v => v.verdict === 'refuted').length * 2 >= answers.length) {
+    return { ...f, verification: 'refuted', reason: answers.map(v => v.reason).join(' | ') }
+  }
+  const doubts = answers.filter(v => v.verdict === 'unproven')
+  return { ...f, claim: 'runtime', status: doubts[0].status, severity: doubts[0].severity, verification: 'unproven', reason: doubts.map(v => v.reason).join(' | ') }
+}
+
+// A runtime claim is proven only by a run, whatever its verdict: the review findings contract, Proof.
+const unproven = f => f.verification === 'unproven' || (f.claim === 'runtime' && f.proof !== 'ran' && f.proof !== 'reproduced')
 
 // A subsystem folder can hold another subsystem (a nested asmdef); each file belongs to one review only.
 const folder = p => String(p).replace(/\\/g, '/').replace(/\/+$/, '')
@@ -301,8 +319,9 @@ For each finding:
 - Check the status against the profile: \`debt\` and \`approved\` need a matching entry; consistent use in the codebase is not approval.
 - Check the severity against its real impact.
 - A file outside the subsystem is not by itself a reason to refute: refute only when the problem has nothing to do with this subsystem's boundary.
-Answer \`refuted\` when the evidence is missing or wrong, or the rule does not apply; \`adjusted\` when the finding is real but its status or severity is wrong (give the corrected values); \`confirmed\` otherwise.
-When in doubt after reading the code, answer refuted.
+- Check the proof, as the Proof part of the review findings contract says: a finding whose problem turns on what the code does when it runs is a runtime claim, whatever its \`claim\` says, and reading cannot prove it; a \`ran\` or \`reproduced\` proof without the command and its output in \`run\` counts as \`said\`.
+Answer \`refuted\` when the evidence is missing or wrong, or the rule does not apply; \`unproven\` when the evidence holds but the finding is a runtime claim no run has proven (say in the reason what run would settle it); \`adjusted\` when the finding is real but its status or severity is wrong (give the corrected values); \`confirmed\` otherwise.
+When in doubt after reading the code, answer refuted, unless only a run could settle the doubt: then answer unproven.
 ${vi > 0 ? `You are independent verifier #${vi + 1}; reach your own conclusion.` : ''}
 Findings (JSON):
 ${JSON.stringify(group, null, 1)}`,
@@ -321,9 +340,11 @@ const done = results.filter(Boolean)
 const failed = done.filter(r => !r.review).map(r => `${r.lens}: ${r.s.name}`)
 if (failed.length) log(`Reviews that failed and are missing from the report: ${failed.join(', ')}`)
 const all = done.flatMap(r => r.findings.map(f => ({ ...f, id: `${r.s.name}/${f.id}`, subsystem: r.s.name })))
-const kept = all.filter(f => f.verification !== 'refuted')
 const refuted = all.filter(f => f.verification === 'refuted')
-log(`${all.length} findings: ${kept.length} kept (${kept.filter(f => f.verification === 'unverified').length} unverified), ${refuted.length} refuted.`)
+const doubtful = all.filter(f => f.verification !== 'refuted' && unproven(f))
+const kept = all.filter(f => f.verification !== 'refuted' && !unproven(f))
+const counts = `${kept.length} findings were kept, ${doubtful.length} unproven and ${refuted.length} refuted`
+log(`${all.length} findings: ${kept.length} kept (${kept.filter(f => f.verification === 'unverified').length} unverified), ${doubtful.length} unproven, ${refuted.length} refuted.`)
 
 phase('Report')
 const report = await agent(
@@ -341,14 +362,16 @@ Rank by status (violation, then debt, then approved), then severity, then how ma
 
 Report structure:
 1. Title \`# Architecture Audit: ${disc.targetName}\`, then a \`> Source:\` line with the target, revision, profile and date.
-2. Summary: a table of violation counts per lens and severity, plus the debt, approved, unverified and refuted counts.
+2. Summary: a table of violation counts per lens and severity, plus the debt, approved, unverified, unproven and refuted counts.
 3. Top actions: at most 7, each naming the findings it resolves.
 4. Per-subsystem scorecard, from the reviewers' summaries.
-5. Violations (❌), most severe first: severity mark (🔴 critical, 🟠 major, 🟡 minor, ⚪ nit), id, rules, \`file:lines\`, quoted evidence, problem, fix, occurrences, and "unverified" where it applies.
-6. Known debt (⚠️) and approved deviations (✅), as tables citing the profile entry.
-7. Profile gaps: deduplicated proposals for the user to decide; never present them as approved.
-8. Not checked, and what is aligned (short).
-9. Refuted during verification: one line each (id, rule, file:line, reason).
+5. Violations (❌), most severe first: severity mark (🔴 critical, 🟠 major, 🟡 minor, ⚪ nit), id, rules, \`file:lines\`, quoted evidence, problem, its proof (claim and level, and the run for a runtime claim), fix, occurrences, and "unverified" where it applies.
+6. Unproven: the runtime findings no run has proven, most severe first, each with its claimed severity, id, rule, \`file:lines\`, quoted evidence, problem, and the run that would settle it (its \`run\`, or what the skeptic's reason names).
+   Say that they are not violations until a run proves them, and keep them out of the top actions; a run that proves one makes it a violation.
+7. Known debt (⚠️) and approved deviations (✅), as tables citing the profile entry.
+8. Profile gaps: deduplicated proposals for the user to decide; never present them as approved.
+9. Not checked, and what is aligned (short).
+10. Refuted during verification: one line each (id, rule, file:line, reason).
 
 Reviewer summaries (JSON):
 ${JSON.stringify(done.filter(r => r.review).map(r => ({ subsystem: r.s.name, lens: r.lens, summary: r.review.summary, aligned: r.review.aligned, profileGaps: r.review.profileGaps, notChecked: r.review.notChecked })), null, 1)}
@@ -356,11 +379,14 @@ ${JSON.stringify(done.filter(r => r.review).map(r => ({ subsystem: r.s.name, len
 Findings kept (JSON):
 ${JSON.stringify(kept, null, 1)}
 
+Findings unproven (JSON):
+${JSON.stringify(doubtful, null, 1)}
+
 Findings refuted (JSON):
 ${JSON.stringify(refuted.map(f => ({ id: f.id, rule: f.rule, file: f.file, lines: f.lines, reason: f.reason })), null, 1)}`,
   { schema: REPORT, label: 'report' },
 )
 
-if (!report) return `arch-audit: the report agent failed. ${kept.length} findings were kept and ${refuted.length} refuted; relaunch to retry the report from cached results.`
-if (!report.written) return `arch-audit: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${kept.length} findings were kept and ${refuted.length} refuted.`
+if (!report) return `arch-audit: the report agent failed. ${counts}; relaunch to retry the report from cached results.`
+if (!report.written) return `arch-audit: the report was not written to \`${reportPath}\` (${clip(report.error, 300)}). ${counts}.`
 return `${report.summary.trim()}\n\nReport: \`${reportFile}\``

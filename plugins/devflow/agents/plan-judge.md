@@ -47,6 +47,9 @@ Severity guides the default:
 
 A finding marked `unverified` had no verifier; read its evidence yourself before you accept it.
 
+A finding marked `unproven` is a runtime claim that no run has proven, as the Proof part of `review-findings.md` says: its evidence held up, but reading cannot show what the code, a library or the platform does when it runs.
+Accept it only when its change is right whether or not the claim holds, such as a test that would show the behavior; otherwise ask, with the finding's `run` as the question's probe, or reject it with your reason.
+
 ## Conflicts Between Lenses
 
 When findings pull in different directions, rule on them together:

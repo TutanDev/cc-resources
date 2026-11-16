@@ -14,15 +14,18 @@ function load(file) {
 }
 const scripts = { 'arch-audit': load('arch-audit.js'), 'design-check': load('design-check.js') }
 
-const finding = (id, lens, severity) => ({
-  id, lens, rule: 'r', status: 'violation', severity, file: 'a.cs', lines: '1', evidence: 'e', problem: 'p', fix: 'f', profileRef: '', occurrences: [],
+const finding = (id, lens, severity, more = {}) => ({
+  id, lens, rule: 'r', status: 'violation', severity, file: 'a.cs', lines: '1', evidence: 'e', problem: 'p', fix: 'f', claim: 'structural', proof: 'cited', run: '', profileRef: '', occurrences: [], ...more,
 })
 const loads = {
   'arch-audit': legacyDocs => ({ repoRoot: '/r', targetName: 'shop', profilePath: 'cc-docs/architecture.md', today: '2026-10-12', revision: 'abc main', subsystems: [{ name: 'shop', path: 'src', why: 'w' }], skipped: [], legacyDocs }),
   'design-check': legacyDocs => ({ repoRoot: '/r', designDir: 'cc-docs/design/shop', topic: 'shop', today: '2026-10-12', profilePath: '', files: ['03-layered-architecture.md'], stale: [], useCases: [{ name: 'checkout', description: 'd', source: '02 §2' }], volatilities: [], legacyDocs, note: '' }),
 }
 
-async function run(name, workflow, { args = 'shop', legacyDocs = false, checkRefused = false, checkFails = false, readRefused = false, readFails = false, reportRefused = false, reportFails = false } = {}) {
+// The first reviewer that runs returns `findings` when given, the others none; a skeptic answers each finding it is
+// given with `verdict(finding, vote)`, where vote counts from 1, except the skeptic of `failedVote`, which fails.
+async function run(name, workflow, { args = 'shop', legacyDocs = false, checkRefused = false, checkFails = false, readRefused = false, readFails = false, reportRefused = false, reportFails = false, findings, verdict = () => 'confirmed', failedVote = 0 } = {}) {
+  let reviewed = false
   const calls = []
   const agent = async (prompt, opts = {}) => {
     const label = opts.label || ''
@@ -42,12 +45,17 @@ async function run(name, workflow, { args = 'shop', legacyDocs = false, checkRef
       return reportRefused ? { written: false, error: 'Permission denied.', summary: '' } : { written: true, error: '', summary: '2 violations.\n' }
     }
     if (label.startsWith('verify')) {
+      const vote = Number((label.match(/\.(\d+)$/) || [])[1] || 1)
+      if (vote === failedVote) return null
+      const answer = f => ({ id: f.id, verdict: verdict(f, vote), status: f.status, severity: f.severity, reason: `${verdict(f, vote)} by vote ${vote}` })
       return workflow === 'arch-audit'
-        ? { verdicts: [{ id: 'L-1', verdict: 'confirmed', status: 'violation', severity: 'major', reason: 'ok' }] }
-        : { verdict: 'confirmed', status: 'violation', severity: 'major', reason: 'ok' }
+        ? { verdicts: JSON.parse(prompt.slice(prompt.indexOf('Findings (JSON):') + 16)).map(answer) }
+        : answer(JSON.parse(prompt.slice(prompt.indexOf('Finding (JSON):') + 15)))
     }
     // A reviewer or a check.
-    return { findings: [finding('L-1', label.split(':')[0], 'major')], summary: 's', aligned: [], profileGaps: [], notChecked: [] }
+    const own = findings === undefined ? [finding('L-1', label.split(':')[0], 'major')] : reviewed ? [] : findings
+    reviewed = true
+    return { findings: own, summary: 's', aligned: [], profileGaps: [], notChecked: [] }
   }
   const parallel = async thunks => Promise.all(thunks.map(t => t().catch(() => null)))
   const pipeline = async (items, ...stages) => Promise.all(items.map(async item => {
@@ -125,6 +133,54 @@ for (const workflow of Object.keys(scripts)) {
     assert.ok(relative.call('write check').prompt.includes(`\`/r/docs/audits/shop-${workflow}-2026-10-12.md\``))
     const absolute = await run('out absolute', workflow, { args: 'shop --out=D:/reports' })
     assert.ok(absolute.call('write check').prompt.includes(`\`D:/reports/shop-${workflow}-2026-10-12.md\``))
+  }
+
+  // 7. Proof: a runtime claim no run has proven is unproven, whatever the skeptics say, and so is a finding a skeptic
+  // answers unproven; unproven findings go to their own part of the report, out of the kept findings and the counts.
+  {
+    const findings = [
+      finding('L-1', 'lowy', 'major'),
+      finding('L-2', 'lowy', 'major', { claim: 'runtime', proof: 'traced', run: 'dotnet test --filter Save' }),
+      finding('L-3', 'lowy', 'critical', { claim: 'runtime', proof: 'ran', run: 'dotnet test --filter Load: Expected 2, got 3' }),
+      finding('L-4', 'lowy', 'major'),
+    ]
+    const verdict = f => (f.id.endsWith('L-4') ? 'unproven' : 'confirmed')
+    const r = await run('proof', workflow, { findings, verdict })
+    const report = r.call('report').prompt
+    const part = (from, to) => report.slice(report.indexOf(from), report.indexOf(to))
+    const ids = text => [...text.matchAll(/"id": "(?:shop\/)?(L-\d)"/g)].map(m => m[1])
+    assert.deepEqual(ids(part('Findings kept (JSON):', 'Findings unproven (JSON):')), ['L-1', 'L-3'], `${workflow}: a structural finding and a runtime one proven by a run are kept`)
+    assert.deepEqual(ids(part('Findings unproven (JSON):', 'Findings refuted (JSON):')), ['L-2', 'L-4'], `${workflow}: a runtime claim only traced, and one a skeptic found unproven, are unproven`)
+    assert.match(report, /Unproven: the runtime findings no run has proven/)
+    const skeptic = r.calls.find(c => c.label.startsWith('verify')).prompt
+    assert.match(skeptic, /Check the proof, as the Proof part of the review findings contract says/)
+    assert.match(skeptic, /`?unproven`? when the evidence holds but the finding is (a runtime claim no run has proven|such a claim and no run has proven it)/)
+    assert.match(skeptic, /unless only a run could settle the doubt: then answer unproven\./)
+    const refused = await run('proof, report refused', workflow, { findings, verdict, reportRefused: true })
+    assert.match(refused.result, /\. 2 findings (were )?kept, 2 unproven,? (and )?0 refuted\.$/)
+  }
+
+  // 8. Three skeptics: a majority upholds, at least half refuting refutes, and anything else is unproven.
+  {
+    const cases = [
+      [['confirmed', 'confirmed', 'unproven'], 'kept'],
+      [['confirmed', 'unproven', 'refuted'], 'unproven'],
+      [['unproven', 'unproven', 'confirmed'], 'unproven'],
+      [['refuted', 'refuted', 'unproven'], 'refuted'],
+      [['confirmed', 'refuted', 'refuted'], 'refuted'],
+      // The third skeptic fails, so two answer: a tie between upholding and refuting refutes.
+      [['confirmed', 'refuted', 'failed'], 'refuted'],
+      [['unproven', 'refuted', 'failed'], 'refuted'],
+      [['confirmed', 'unproven', 'failed'], 'unproven'],
+    ]
+    for (const [votes, outcome] of cases) {
+      const failedVote = votes.indexOf('failed') + 1
+      const r = await run(`votes ${votes}`, workflow, { args: 'shop --thorough', findings: [finding('L-1', 'lowy', 'major')], verdict: (f, vote) => votes[vote - 1], failedVote })
+      const report = r.call('report').prompt
+      assert.equal(r.calls.filter(c => c.label.startsWith('verify')).length, 3, `${workflow}: three skeptics`)
+      const where = ['kept', 'unproven', 'refuted'].find(k => /"id": "(?:shop\/)?L-1"/.test(report.slice(report.indexOf(`Findings ${k} (JSON):`)).split(/\nFindings \w+ \(JSON\):/)[0]))
+      assert.equal(where, outcome, `${workflow}: votes ${votes.join(', ')} leave the finding ${outcome}`)
+    }
   }
 }
 
