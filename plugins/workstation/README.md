@@ -86,4 +86,5 @@ bash plugins/workstation/tests/setup-user-settings.test.sh
 
 They run the hook against throwaway config directories and never touch your own settings.
 Where Git Bash cannot make symlinks, the two cases that need them are skipped; CI runs them on Linux.
-Bump `version` in `.claude-plugin/plugin.json` with every change to the hook or to `statusline-command.sh` you want your machines to receive.
+Machines stay on their installed version until `version` in `.claude-plugin/plugin.json` goes up.
+It goes up when the maintainer releases a change to the hook or to `statusline-command.sh`, and `house-rules` refuses an agent's bump until the maintainer asks for one.

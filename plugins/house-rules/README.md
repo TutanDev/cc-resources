@@ -1,13 +1,13 @@
 # house-rules
 
-A Claude Code plugin that holds six rules at the tool call instead of leaving them to the model's memory, and carries three skills.
+A Claude Code plugin that holds eight rules at the tool call instead of leaving them to the model's memory, and carries three skills.
 A rule written in `CLAUDE.md` loses whenever a system reminder or an old habit says otherwise.
 A hook does not: the call is refused, and the refusal tells the model what to fix.
 Two of the skills, `unslop` and `technical-writing`, cover what a hook cannot judge in prose, such as filler, hedging and AI vocabulary.
 The third, `correct`, finds the mistakes agents keep repeating in a project and fixes each at the highest level that works, a hook like these among them.
 
 It is built on function hooks, an early-access Claude Code API.
-The first four rules were written and tested on Claude Code 2.1.294, and the last two on 2.1.325.
+The first four rules were written and tested on Claude Code 2.1.294, and the other four on 2.1.325.
 
 ## Install
 
@@ -54,7 +54,9 @@ A rule nothing holds yet says so, and `correct` is how one gets an enforcer.
 | No agent named as a co-author of a commit or a pull request | [No Claude Attribution](#no-claude-attribution) |
 | No em dash; a plain dash takes its place | [No Em Dash](#no-em-dash), and `unslop` rule 13 |
 | Each full sentence of Markdown on its own line | [One Sentence per Line](#one-sentence-per-line) |
-| No `CHANGELOG.md` or file marked as generated changed by hand | [Not by Hand](#not-by-hand) |
+| Changelog entries go under the next-version heading | [Changelog Under the Next Version](#changelog-under-the-next-version) |
+| No version number bumped until the person says so | [No Bump Until Asked](#no-bump-until-asked) |
+| No file marked as generated changed by hand | [Not by Hand](#not-by-hand) |
 | Prefer quality, simplicity, robustness, scalability and maintainability over development cost | Nothing: a judgment call, held by `CLAUDE.md` alone |
 | A bug fix starts by reproducing the bug end to end, as a user would meet it | Nothing yet; the `verification` plugin gives a project the skill to drive it |
 | End-to-end testing is picky about the UI, down to the pixel | Nothing: a judgment call |
@@ -128,21 +130,52 @@ An agent loads `unslop` before it writes Markdown (`.md`, `.mdx`, `.markdown`).
 - Each agent loads the skill for itself.
   A fork carries what its parent loaded (`agent.spawn`), and a `/clear` unloads it (`session.end`).
 
+### Changelog Under the Next Version
+
+An agent adds changelog entries under the next-version heading at the top, `## [Unreleased]` in Keep a Changelog, and nowhere else.
+
+- A Write or Edit of a changelog (`CHANGELOG.md`, `changelog`, `Change-Log.txt` and the like) goes through when everything it changes lies in the next-version section: the heading, the lines under it down to the next heading as high, and its link definition.
+  A heading titled `Unreleased`, `Next` or `Upcoming` counts, with or without brackets.
+- An agent may open that heading when the changelog has none, and may write a new changelog that holds only its intro and that section.
+- A change to the intro, a released section or its heading is refused, and the refusal says where entries go.
+  It goes through when the person's latest prompt mentions the changelog.
+- A shell command that writes to a changelog is refused and sent to Edit or Write, where the section it reaches can be told apart: a redirect or `tee` into it, or `sed -i`, `perl -i`, PowerShell's `Set-Content`, `Add-Content` or `Out-File`, or a script's write call such as `fs.writeFileSync` with the changelog named.
+  It too goes through when the person's latest prompt mentions the changelog, so a tool can regenerate one when asked.
+
+### No Bump Until Asked
+
+A version number goes up only when the person says so.
+
+- A change is refused when it adds a release heading to a changelog, or replaces the version in `package.json`, `plugin.json`, `marketplace.json`, `manifest.json`, an MSBuild project or props file (`<Version>`, `<PackageVersion>` and the like), a `.nuspec`, or Unity's `bundleVersion`.
+  A version added with a new entry, or removed with an old one, is no bump, nor is a dependency's version.
+- A command that bumps one is refused: `npm`, `pnpm` or `yarn version` with a new version, `npm pkg set version=`, or an in-place edit of one of those files with a version in the command, by `sed -i`, `perl -i`, PowerShell's file writers or a script's write call.
+- The refusal says to leave the version, note the change under the changelog's next-version heading, and say in the reply that it is ready for a release.
+- It all goes through when the person's latest prompt asks for a bump, a release, a new version or a version set to a number.
+  A release opens the changelog's released sections too, since it moves the next-version entries under the new heading.
+- Only the person's own prompts count: typed at the terminal, sent through Remote Control, or from an SDK host such as `claude -p`.
+  A task notification, another session's message or a scheduled prompt neither asks nor clears what was asked, and a `/clear` clears it.
+
+The rule came from a real mistake: an agent added a release to a Unity package's `CHANGELOG.md` by hand, em dashes and all, because the package's own `CLAUDE.md` asked for an entry and a version bump with each change.
+
+It was proven end to end on Claude Code 2.1.325, in a scratch project whose `CLAUDE.md` asks for a release section and a minor bump with every change.
+The user `CLAUDE.md` loaded beside it said the opposite: entries under `## [Unreleased]`, and no bump until asked.
+Asked for a `--shout` flag, the agent's first command still ran `sed -i` on the version in `package.json` and wrote a release section into `CHANGELOG.md` with `node -e`.
+The bump was refused, and the agent then put the entry under a new `## [Unreleased]` heading with Edit, left the version at 1.2.0, and said in its reply that the bump waits for the person.
+That run showed the changelog write from the shell passing unseen, so such a command is now refused too, and in a second run the agent's shell write to the changelog was refused and made again with Edit.
+Asked next to release 1.3.0, the agent moved the entry under a 1.3.0 heading and bumped `package.json`, and both went through.
+
 ### Not by Hand
 
-A changelog, or a file marked as generated, is not changed by hand.
+A file marked as generated is not changed by hand.
 
-- A Write or Edit of a changelog (`CHANGELOG.md`, `changelog`, `Change-Log.txt` and the like) is refused.
-  The refusal sends the entry to the release tooling or to the person: in the commit message, or in the reply.
 - An Edit of a file marked as generated is refused.
   A marker is a comment among the file's first 10 lines that holds `<auto-generated>`, `@generated`, "generated" with "do not edit", a line that opens "Generated from" or "Generated by", or "this file was generated".
   The refusal quotes the marker and says to change what the file is generated from and run its generator.
 - A Write of a whole generated file goes through, since that is how a skill such as `/lowy:fitness-tests` regenerates one from its template.
 - A template (`.template`, `.tmpl`, `.hbs`, `.j2` and the like) carries the header of the file it makes, and is still edited by hand.
   So is a file of comments alone, such as the header a generator stamps on what it writes.
-- Either refusal comes alone, since nothing else about the change matters until it goes another way.
+- This refusal, and the two before it, each come alone, since nothing else about the change matters until it goes another way.
 
-The rule was proven on a real mistake: an agent that added a release to a Unity package's `CHANGELOG.md` by hand, em dashes and all, because the package's own `CLAUDE.md` asked it to.
 Its markers were checked against every tracked file of the author's repositories, 2,811 of them: they mark the 140 generated files and nothing else.
 
 ## Limits
@@ -154,18 +187,22 @@ Its markers were checked against every tracked file of the author's repositories
 - A message file the guard cannot read, such as a relative path after the shell changed directory, is judged on the command's text alone.
 - The hooks check that an agent loaded `unslop`, not that its text follows the skill.
   A commit message, a pull request body or a reply is sent to the skills by the system prompt alone, and a Markdown file written through a shell command is not held to the load.
-- A changelog or generated file changed by a shell command (`sed -i`, `echo >>`) is not seen, and a generated file whose marker is not in a comment among its first 10 lines is not known as one.
+- A generated file changed by a shell command (`sed -i`, `echo >>`) is not seen, and a generated file whose marker is not in a comment among its first 10 lines is not known as one.
+- A changelog changed by a command that does not name it, such as a script file or a `mv` over it, is not seen.
+- A version bumped by a script file, by a release tool other than the package managers' version commands, or by a shell edit that does not name the file is not seen.
+- A command is judged by its words, so one that names a version file and the word version beside a write call, such as reading the version into another file, is refused as a bump.
+- What a prompt asks for is read from its words: "release notes" opens a bump as "release it" does, and "ship it" opens nothing.
 
 ## Layout
 
 ```
 house-rules/
 ├── .claude-plugin/plugin.json
-├── hooks/           The function hooks that hold the six rules
+├── hooks/           The function hooks that hold the eight rules
 ├── skills/          unslop, technical-writing and correct
 ├── scripts/         The transcript reader correct runs, and its pure core
 ├── tests/           The hooks' tests, and the transcript reader's
-├── types/           The session value the hooks keep, as a typed contract
+├── types/           The session values the hooks keep, as a typed contract
 └── NOTICE           The MIT notice for the text the skills adapt from pstack
 ```
 

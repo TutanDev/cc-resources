@@ -154,7 +154,8 @@ lowy/
 
 ## Maintaining
 
-Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
+Installed copies stay on their version until `version` in `.claude-plugin/plugin.json` goes up.
+It goes up when the maintainer releases, not with each change, and `house-rules` refuses an agent's bump until the maintainer asks for one.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `node plugins/lowy/tests/workflows.test.mjs` after changing a workflow, and `claude plugin validate plugins/lowy` before pushing.
 Keep the workflow scripts LF-only and plain JavaScript: the Workflow tool rejects carriage returns and TypeScript syntax.

@@ -207,7 +207,8 @@ devflow/
 
 ## Maintaining
 
-Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive.
+Installed copies stay on their version until `version` in `.claude-plugin/plugin.json` goes up.
+It goes up when the maintainer releases, not with each change, and `house-rules` refuses an agent's bump until the maintainer asks for one.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/lowy/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `node plugins/devflow/tests/review-plan.test.mjs` after changing `workflows/review-plan.js`, and `node plugins/devflow/tests/check-plan.test.mjs` after changing the plan contract, its template or `scripts/plan-structure.mjs`: the template and the sample plan must keep passing.
 Run `claude plugin test plugins/devflow` and `claude plugin validate plugins/devflow` before pushing.

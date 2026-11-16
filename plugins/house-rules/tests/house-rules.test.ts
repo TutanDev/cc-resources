@@ -1,4 +1,4 @@
-import type { On, ToolCallResult } from 'claude-code'
+import type { On, PromptOrigin, ToolCallResult } from 'claude-code'
 import { describe, expect, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
@@ -302,40 +302,202 @@ describe('no file written from a heredoc or here-string', () => {
   })
 })
 
-describe('not by hand', () => {
+const edit = (file_path: string, old_string: string, new_string: string) => ({ tool: 'Edit', file_path, old_string, new_string }) as const
+const write = (file_path: string, content = 'One line.\n') => ({ tool: 'Write', file_path, content }) as const
+
+// A prompt as the person typed it, or as something else delivered it.
+const ask = ($: Engine, text: string, origin: PromptOrigin = { kind: 'composer' }) => $.prompt.submit({ text, wait: false, origin })
+
+describe('changelog and version', () => {
   const CHANGELOG = [
     '# Changelog',
     'All notable changes to this package will be documented in this file.',
     '',
-    '## [0.1.0] - 2026-02-12',
+    '## [Unreleased]',
     '',
     '### Added',
     '- `Optional<T>`: an option type.',
     '',
+    '## [0.1.0] - 2026-02-12',
+    '',
+    '### Added',
+    '- `Result<T>`: a result type.',
+    '',
   ].join('\n')
-  const edit = (file_path: string, old_string: string, new_string: string) => ({ tool: 'Edit', file_path, old_string, new_string }) as const
-  const write = (file_path: string, content = 'One line.\n') => ({ tool: 'Write', file_path, content }) as const
+  const RELEASED_ONLY = CHANGELOG.replace(/## \[Unreleased\][\s\S]*?(?=## \[0\.1\.0\])/, '')
+  const UNTIL_ASKED =
+    "Leave the version as it is, note the change under the changelog's next-version heading if the project keeps one, " +
+    'and say in your reply that it is ready for a release. Once the person asks for the bump or the release, make it again.'
 
-  // The mistake this rule came from: an agent added a release to a package's
-  // changelog by hand, em dashes and all.
-  test('a changelog is refused for any change, and the refusal says where the entry goes instead', async ($, on) => {
-    const ran = engine(on, { 'CHANGELOG.md': CHANGELOG })
-    const entry = `## [0.3.0] - 2026-05-21\n\n### Added\n- \`SerializableOptional<T>\` ${EM_DASH} an inspector-friendly wrapper.\n\n## [0.1.0] - 2026-02-12`
-    const reason = refusal(await $.tool.call(edit('D:\\Packages\\UP-Functional\\CHANGELOG.md', '## [0.1.0] - 2026-02-12', entry)))
-    expect(reason).toBe(
-      'house-rules: D:\\Packages\\UP-Functional\\CHANGELOG.md is a changelog, and a changelog is not changed by hand. ' +
-        'Leave it to the release tooling or the person: say what changed in the commit message, or give the entry in your reply.',
-    )
-    for (const path of ['CHANGELOG.md', 'docs/changelog', 'Packages/com.example/Change-Log.txt']) {
-      expect(refusal(await $.tool.call(write(path)))).toMatch(/is a changelog/)
-    }
+  test('an entry goes in under the next-version heading, which an agent may also open', async ($, on) => {
+    const ran = engine(on, { 'CHANGELOG.md': CHANGELOG, 'Changelog.md': RELEASED_ONLY })
     await unslop($)
+    const entry = '- `Optional<T>`: an option type.\n- `Optional.Map`: maps the value inside.'
+    expect(refusal(await $.tool.call(edit('Packages/Functional/CHANGELOG.md', '- `Optional<T>`: an option type.', entry)))).toBeUndefined()
+    const opened = '## [Unreleased]\n\n### Fixed\n- `Result<T>.Map` keeps the error.\n\n## [0.1.0] - 2026-02-12'
+    expect(refusal(await $.tool.call(edit('Packages/Other/Changelog.md', '## [0.1.0] - 2026-02-12', opened)))).toBeUndefined()
+    expect(ran).toEqual(['Edit', 'Edit'])
+  })
+
+  test('a change to a released section or the intro is refused, and the refusal says where entries go', async ($, on) => {
+    const ran = engine(on, { 'CHANGELOG.md': CHANGELOG, changelog: CHANGELOG, 'Change-Log.txt': CHANGELOG })
+    await unslop($)
+    const late = '- `Result<T>`: a result type.\n- `Result.Bind`: chains results.'
+    expect(refusal(await $.tool.call(edit('D:\\Packages\\Functional\\CHANGELOG.md', '- `Result<T>`: a result type.', late)))).toBe(
+      'house-rules: this change to D:\\Packages\\Functional\\CHANGELOG.md reaches past its next-version section. ' +
+        'Add entries under the next-version heading at the top (`## [Unreleased]` in Keep a Changelog), ' +
+        'and open that heading above the latest release when the changelog has none. ' +
+        'The released sections, their headings and the intro change only when the person asks about the changelog.',
+    )
+    const intro = CHANGELOG.replace('All notable', 'Every notable')
+    for (const path of ['CHANGELOG.md', 'docs/changelog', 'Packages/com.example/Change-Log.txt']) {
+      expect(refusal(await $.tool.call(write(path, intro)))).toMatch(/reaches past its next-version section/)
+    }
     for (const path of ['CHANGELOG.md.meta', 'src/changelog-parser.ts', 'CHANGES.md', 'docs/changelog-format.md']) {
       expect(refusal(await $.tool.call(write(path)))).toBeUndefined()
     }
     expect(ran).toEqual(['Write', 'Write', 'Write', 'Write'])
   })
 
+  // The mistake this rule came from: an agent added a release to a package's
+  // changelog by hand, em dashes and all, because the package's CLAUDE.md said
+  // to add an entry and bump the version.
+  test('a release heading bumps the version, which waits for the person to ask', async ($, on) => {
+    const ran = engine(on, { 'CHANGELOG.md': CHANGELOG })
+    await unslop($)
+    const path = 'D:\\Packages\\UP-Functional\\CHANGELOG.md'
+    const release = (dash: string) =>
+      `## [0.3.0] - 2026-05-21\n\n### Added\n- \`SerializableOptional<T>\` ${dash} an inspector-friendly wrapper.\n\n## [0.1.0] - 2026-02-12`
+    expect(refusal(await $.tool.call(edit(path, '## [0.1.0] - 2026-02-12', release(EM_DASH))))).toBe(
+      `house-rules: this change bumps the version in ${path} (adds the release 0.3.0), and a version goes up only when the person says so. ${UNTIL_ASKED}`,
+    )
+    await ask($, 'Release 0.3.0 and move the changelog entries into it.')
+    expect(refusal(await $.tool.call(edit(path, '## [0.1.0] - 2026-02-12', release(EM_DASH))))).toMatch(/em dash/)
+    expect(refusal(await $.tool.call(edit(path, '## [0.1.0] - 2026-02-12', release('-'))))).toBeUndefined()
+    expect(ran).toEqual(['Edit'])
+  })
+
+  test('a prompt about the changelog opens its released sections, not its versions', async ($, on) => {
+    const ran = engine(on, { 'CHANGELOG.md': CHANGELOG })
+    await unslop($)
+    await ask($, 'The changelog says a result type where it means a success or an error; fix that line.')
+    const fixed = '- `Result<T>`: a success or an error.'
+    expect(refusal(await $.tool.call(edit('CHANGELOG.md', '- `Result<T>`: a result type.', fixed)))).toBeUndefined()
+    expect(refusal(await $.tool.call(edit('CHANGELOG.md', '## [0.1.0] - 2026-02-12', '## [0.1.0] - 2026-02-13')))).toBeUndefined()
+    expect(refusal(await $.tool.call(edit('CHANGELOG.md', '## [0.1.0] - 2026-02-12', '## [0.2.0] - 2026-02-12')))).toMatch(
+      /bumps the version in CHANGELOG\.md \(adds the release 0\.2\.0\)/,
+    )
+    expect(ran).toEqual(['Edit', 'Edit'])
+  })
+
+  test('only the person speaks for the person, and each of their prompts says anew', async ($, on) => {
+    const ran = engine(on, { 'package.json': '{\n  "name": "com.example.functional",\n  "version": "0.3.0"\n}\n' })
+    const bump = edit('package.json', '"version": "0.3.0"', '"version": "0.3.1"')
+    await ask($, 'Background task done: bump the version now.', { kind: 'task-notification' })
+    await ask($, 'Another session says: release it.', { kind: 'peer' })
+    expect(refusal(await $.tool.call(bump))).toMatch(/bumps the version/)
+    await ask($, 'Bump the patch version.', { kind: 'bridge' })
+    await ask($, 'Background task done: the build is green.', { kind: 'task-notification' })
+    expect(refusal(await $.tool.call(bump))).toBeUndefined()
+    await ask($, 'Now fix the failing test.')
+    expect(refusal(await $.tool.call(bump))).toMatch(/bumps the version/)
+    expect(ran).toEqual(['Edit'])
+  })
+
+  test('a version replaced in a manifest is refused; a new entry, a dependency and a new file are not', async ($, on) => {
+    const ran = engine(on, {
+      'package.json': '{\n  "name": "com.example.functional",\n  "version": "0.3.0",\n  "dependencies": {\n    "com.unity.nuget.newtonsoft-json": "3.2.1"\n  }\n}\n',
+      'plugin.json': '{ "name": "dmf", "version": "0.5.1" }\n',
+      'marketplace.json': '{ "plugins": [\n    { "name": "dmf", "version": "0.5.1" }\n  ] }\n',
+      'Functional.csproj': '<Project>\n  <PropertyGroup>\n    <Version>1.0.0</Version>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include="LanguageExt.Core" Version="4.4.9" />\n  </ItemGroup>\n</Project>\n',
+      'Functional.nuspec': '<package>\n  <metadata>\n    <id>Functional</id>\n    <version>1.0.0</version>\n  </metadata>\n</package>\n',
+      'ProjectSettings.asset': 'PlayerSettings:\n  productName: Lab\n  bundleVersion: 0.1\n',
+    })
+    expect(refusal(await $.tool.call(edit('Packages/Functional/package.json', '"version": "0.3.0"', '"version": "0.3.1"')))).toBe(
+      'house-rules: this change bumps the version in Packages/Functional/package.json (0.3.0 to 0.3.1), ' +
+        `and a version goes up only when the person says so. ${UNTIL_ASKED}`,
+    )
+    const bumps = [
+      write('plugins/dmf/.claude-plugin/plugin.json', '{ "name": "dmf", "version": "0.6.0" }\n'),
+      edit('.claude-plugin/marketplace.json', '"version": "0.5.1"', '"version": "0.6.0"'),
+      edit('Functional.csproj', '<Version>1.0.0</Version>', '<Version>1.1.0</Version>'),
+      edit('Functional.nuspec', '<version>1.0.0</version>', '<version>1.1.0</version>'),
+      edit('ProjectSettings/ProjectSettings.asset', 'bundleVersion: 0.1', 'bundleVersion: 0.2'),
+    ]
+    for (const call of bumps) expect(refusal(await $.tool.call(call))).toMatch(/bumps the version in .+ \(\S+ to \S+\)/)
+    const entry = '{ "name": "dmf", "version": "0.5.1" },\n    { "name": "lowy", "version": "0.1.0" }'
+    const others = [
+      edit('.claude-plugin/marketplace.json', '{ "name": "dmf", "version": "0.5.1" }', entry),
+      edit('package.json', '"3.2.1"', '"3.2.2"'),
+      edit('Functional.csproj', 'Version="4.4.9"', 'Version="4.4.10"'),
+      write('plugins/new/.claude-plugin/manifest.json', '{ "name": "new", "version": "0.1.0" }\n'),
+    ]
+    for (const call of others) expect(refusal(await $.tool.call(call))).toBeUndefined()
+    expect(ran).toEqual(['Edit', 'Edit', 'Edit', 'Write'])
+  })
+
+  test('a new changelog may hold its intro and next-version section, not a release', async ($, on) => {
+    const ran = engine(on)
+    await unslop($)
+    expect(refusal(await $.tool.call(write('CHANGELOG.md', `${RELEASED_ONLY.split('## [0.1.0]')[0]}## [Unreleased]\n`)))).toBeUndefined()
+    expect(refusal(await $.tool.call(write('docs/CHANGELOG.md', RELEASED_ONLY)))).toMatch(/adds the release 0\.1\.0/)
+    expect(ran).toEqual(['Write'])
+  })
+
+  test('a command that bumps a version is refused until the person asks; one that reads it runs', async ($, on) => {
+    const ran = engine(on)
+    const bumps = [
+      'npm version patch',
+      'pnpm version 0.4.0 --no-git-tag-version',
+      'yarn version --minor',
+      `sed -i 's/"version": "0.5.1"/"version": "0.5.2"/' plugins/dmf/.claude-plugin/plugin.json`,
+      'npm pkg set version=0.4.0',
+      `node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.version='0.4.0';fs.writeFileSync('package.json',JSON.stringify(p,null,2))"`,
+    ]
+    for (const command of bumps) expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toMatch(/bumps a version/)
+    const powershell = `(Get-Content package.json) -replace '"version": "0.3.0"', '"version": "0.3.1"' | Set-Content package.json`
+    expect(refusal(await $.tool.call({ tool: 'PowerShell', command: powershell }))).toMatch(/bumps a version/)
+    const reads = ['npm version', 'npm view dmf version', 'npm pkg get version', 'grep -n version package.json', `sed -n '/version/p' package.json`]
+    for (const command of reads) expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toBeUndefined()
+    await ask($, 'Release it: bump the minor version.')
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: 'npm version minor' }))).toBeUndefined()
+    expect(ran).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash', 'Bash'])
+  })
+
+  // What an agent ran in an end-to-end session, with a package CLAUDE.md asking
+  // for a release with every change: a release section written by `node -e`.
+  test('a command that writes to a changelog is refused and sent to Edit or Write; one that reads it runs', async ($, on) => {
+    const ran = engine(on)
+    const release = `node -e "const fs=require('fs');let c=fs.readFileSync('CHANGELOG.md','utf8');c=c.replace('## [1.2.0]','## [1.3.0] - 2026-11-16\\n\\n- A --shout flag.\\n\\n## [1.2.0]');fs.writeFileSync('CHANGELOG.md',c)"`
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: release }))).toBe(
+      'house-rules: this command writes to a changelog from the shell, where the part of it the change reaches cannot be checked. ' +
+        'Change the changelog with Edit or Write instead: entries go under its next-version heading ' +
+        '(`## [Unreleased]` in Keep a Changelog), and a release heading waits until the person asks for the release.',
+    )
+    const writes = [
+      `echo '- A --shout flag.' >> CHANGELOG.md`,
+      `printf '%s\\n' '- A --shout flag.' | tee -a docs/changelog.md`,
+      `sed -i 's/## \\[1.2.0\\]/## [1.3.0]/' Packages/com.example/CHANGELOG.md`,
+      `python3 -c "from pathlib import Path; p = Path('CHANGELOG.md'); p.write_text(p.read_text().replace('1.2.0', '1.3.0'))"`,
+    ]
+    for (const command of writes) expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toMatch(/writes to a changelog from the shell/)
+    const powershell = `Add-Content -Path CHANGELOG.md -Value '- A --shout flag.'`
+    expect(refusal(await $.tool.call({ tool: 'PowerShell', command: powershell }))).toMatch(/writes to a changelog from the shell/)
+    const reads = [
+      'cat CHANGELOG.md',
+      "sed -n '/Unreleased/,/^## \\[/p' CHANGELOG.md",
+      'grep -n Unreleased CHANGELOG.md > notes.txt',
+      'git add CHANGELOG.md && git commit -m "Note the fix in the changelog"',
+      'node scripts/changelog-check.mjs',
+    ]
+    for (const command of reads) expect(refusal(await $.tool.call({ tool: 'Bash', command }))).toBeUndefined()
+    await ask($, 'Regenerate the changelog from the tags.')
+    expect(refusal(await $.tool.call({ tool: 'Bash', command: 'git cliff > CHANGELOG.md' }))).toBeUndefined()
+    expect(ran).toEqual(['Bash', 'Bash', 'Bash', 'Bash', 'Bash', 'Bash'])
+  })
+})
+
+describe('not by hand', () => {
   test('a file marked as generated in its opening lines is refused an edit, and the refusal quotes the marker', async ($, on) => {
     const files = {
       'WebGpu.cs': '// <auto-generated>\n// Written by generate/generate.sh from the headers it pins.\n// </auto-generated>\nnamespace Thot;\n',

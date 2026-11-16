@@ -93,7 +93,9 @@ A change is committed only when you ask.
 
 ## Maintaining
 
-Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive, and run `claude plugin validate plugins/verification` before pushing.
+Installed copies stay on their version until `version` in `.claude-plugin/plugin.json` goes up.
+It goes up when the maintainer releases, not with each change, and `house-rules` refuses an agent's bump until the maintainer asks for one.
+Run `claude plugin validate plugins/verification` before pushing.
 Keep the ported text's notice in [`NOTICE`](NOTICE) when you change the files it lists.
 
 ## Sources

@@ -268,7 +268,8 @@ dmf/
 
 ## Maintaining
 
-Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive; installed copies stay on their version until it changes.
+Installed copies stay on their version until `version` in `.claude-plugin/plugin.json` goes up.
+It goes up when the maintainer releases, not with each change, and `house-rules` refuses an agent's bump until the maintainer asks for one.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/lowy/references/` and `plugins/devflow/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
 Run `claude plugin test plugins/dmf` and `claude plugin validate plugins/dmf` before pushing.
 Run the [eval suite](#evals) after changing a skill, on the change and on `main`.

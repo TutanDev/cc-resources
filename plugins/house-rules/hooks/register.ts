@@ -1,16 +1,17 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
 
-import type { UnsloppedAgents } from '../types'
+import type { AskedFor, UnsloppedAgents } from '../types'
 
 // Standing rules, held at the tool call instead of left to the model's memory
 // of them: no Claude attribution in a commit or a pull request, no em dash in
 // anything written, one full sentence per line of Markdown, no file written
-// from a shell heredoc or here-string, and no changelog or generated file
-// changed by hand. Beside them, the writing
-// skills: a standing section of the system prompt, or a note at the end of a
-// subagent's task, sends prose a person reads to them, and a Markdown write is
-// refused until the agent making it has loaded `house-rules:unslop`.
+// from a shell heredoc or here-string, a changelog changed under its
+// next-version heading alone, no version bumped until the person asks, and no
+// generated file changed by hand. Beside them, the writing skills: a standing
+// section of the system prompt, or a note at the end of a subagent's task,
+// sends prose a person reads to them, and a Markdown write is refused until
+// the agent making it has loaded `house-rules:unslop`.
 
 const EM_DASH = String.fromCharCode(0x2014)
 
@@ -255,11 +256,159 @@ const SHELL_TEXT_TO_FILE =
   'Write the file with the Write tool, or change it with Edit; a heredoc or here-string ' +
   "that feeds a commit message or a program's stdin is still fine."
 
-// Files not changed by hand: a changelog, which release tooling or the person
-// writes, and a file whose opening lines mark it as generated, which changes
-// through its source and its generator. A Write of a whole generated file
-// goes through, since that is how a skill regenerates one from its template.
+// A changelog changes under its next-version heading alone (`## [Unreleased]`
+// in Keep a Changelog), which an agent may also open; its released sections,
+// their headings and its intro change when the person's prompt asks about the
+// changelog. A version goes up only when the person's prompt asks for a bump
+// or a release: a new release heading in a changelog, a version replaced in a
+// manifest or a project file, or a command that bumps one. A shell command
+// that writes to a changelog goes through Edit or Write instead, where its
+// sections can be told apart. What a prompt asks for holds until the person's
+// next prompt; a notification, a peer or a schedule does not speak for them.
 const CHANGELOG = /(?:^|[\\/])change-?log(?:\.(?:md|mdx|markdown|txt|rst|adoc))?$/i
+const HEADING = /^(#{1,6})[ \t]+(.*?)[ \t]*$/
+const NEXT_TITLE = /^\[?[ \t]*(?:unreleased|next|upcoming)\b/i
+const NEXT_LINK = /^[ \t]*\[(?:unreleased|next|upcoming)\]:/i
+const RELEASE_TITLE = /^\[?[ \t]*v?(\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?)\b/
+
+const linesOf = (text: string) => normalized(text).split('\n')
+
+// The changelog without its next-version section: that heading, the lines
+// under it down to the next heading as high or higher, and its link
+// definition. Blank lines and trailing spaces are not compared.
+const outsideNext = (text: string) => {
+  const kept: string[] = []
+  let depth: number | undefined
+  for (const line of linesOf(text)) {
+    const heading = HEADING.exec(line)
+    if (heading !== null) {
+      const level = heading[1]?.length ?? 0
+      if (depth !== undefined && level <= depth) depth = undefined
+      if (depth === undefined && NEXT_TITLE.test(heading[2] ?? '')) depth = level
+    }
+    if (depth === undefined && !NEXT_LINK.test(line) && line.trim() !== '') kept.push(line.trimEnd())
+  }
+  return kept.join('\n')
+}
+
+// A new changelog may hold its intro and next-version section.
+const reachesPastNext = (before: string, after: string) => before.trim() !== '' && outsideNext(before) !== outsideNext(after)
+
+const releasesIn = (text: string) =>
+  linesOf(text).flatMap(line => {
+    const title = HEADING.exec(line)?.[2]
+    const version = title === undefined ? undefined : RELEASE_TITLE.exec(title)?.[1]
+    return version === undefined ? [] : [version]
+  })
+
+// Where a manifest or a project file keeps its own version. A dependency's
+// version sits under another key or in an attribute, and is not one.
+const VERSION_FIELDS = [
+  { file: /(?:^|[\\/])(?:package|plugin|marketplace|manifest)\.json$/i, value: /"version"\s*:\s*"(?<version>[^"]*)"/g },
+  {
+    file: /\.(?:csproj|fsproj|vbproj|props|targets|nuspec)$/i,
+    value: /<(Version|VersionPrefix|PackageVersion|AssemblyVersion|FileVersion|InformationalVersion)>\s*(?<version>[^<]*?)\s*<\/\1>/gi,
+  },
+  { file: /(?:^|[\\/])ProjectSettings\.asset$/, value: /^[ \t]*bundleVersion:[ \t]*(?<version>.*?)[ \t]*$/gm },
+]
+
+// The values of `from` left once each value of `away` takes out one equal to it.
+const minus = (from: string[], away: string[]) => {
+  const left = [...away]
+  return from.filter(value => {
+    const at = left.indexOf(value)
+    if (at >= 0) left.splice(at, 1)
+    return at < 0
+  })
+}
+
+// How a change bumps a version, in words, or undefined when it bumps none. A
+// version replaced bumps it; one added with a new entry, or removed with an
+// old one, does not.
+const versionBump = (path: string, before: string, after: string) => {
+  if (CHANGELOG.test(path)) {
+    const added = minus(releasesIn(after), releasesIn(before))
+    return added.length > 0 ? `adds the release ${added.join(', ')}` : undefined
+  }
+  const field = VERSION_FIELDS.find(({ file }) => file.test(path))
+  if (field === undefined) return undefined
+  const values = (text: string) => [...normalized(text).matchAll(field.value)].map(match => match.groups?.version ?? '')
+  const [was, is] = [values(before), values(after)]
+  const [removed, added] = [minus(was, is), minus(is, was)]
+  return removed.length > 0 && added.length > 0 ? `${removed.join(', ')} to ${added.join(', ')}` : undefined
+}
+
+// `npm version patch`, `yarn version --minor`, `npm pkg set version=1.3.0`,
+// or a command that rewrites a version file in place with the version in it.
+const VERSION_COMMAND = new RegExp(
+  String.raw`\b(?:npm|pnpm|yarn)(?:\.cmd)?\s+version\s+(?:--?(?:new-version|major|minor|patch|premajor|preminor|prepatch|prerelease)\b|(?:major|minor|patch|premajor|preminor|prepatch|prerelease|from-git)\b|v?\d)` +
+    String.raw`|\b(?:npm|pnpm)(?:\.cmd)?\s+pkg\s+set\s+["']?version=`,
+  'i',
+)
+// `sed -i`, `perl -i`, PowerShell's file writers, or a script's write call,
+// such as `node -e` with `fs.writeFileSync`.
+const IN_PLACE_EDIT = new RegExp(
+  String.raw`\b(?:sed|perl)\b[^|;&\r\n]*\s-[a-zA-Z]*i|\b(?:Set|Add)-Content\b|\bOut-File\b` +
+    String.raw`|\b(?:writeFileSync|appendFileSync|writeFile|appendFile|write_text|WriteAllText|AppendAllText|WriteAllLines|AppendAllLines)\b`,
+  'i',
+)
+const VERSION_FILE_NAMED = /(?:package|plugin|marketplace|manifest)\.json\b|\.(?:csproj|fsproj|vbproj|props|targets|nuspec)\b|\bProjectSettings\.asset\b/i
+
+const bumpsByCommand = (command: string) =>
+  VERSION_COMMAND.test(command) || (IN_PLACE_EDIT.test(command) && VERSION_FILE_NAMED.test(command) && /version/i.test(command))
+
+// A command that writes to a changelog: a redirect or `tee` into it, or an
+// in-place edit with it named. Which section it reaches needs the file before
+// and after, which only Edit and Write show.
+const CHANGELOG_NAMED = /\bchange-?log(?:\.(?:md|mdx|markdown|txt|rst|adoc))?\b/i
+const INTO_CHANGELOG = /(?:>>?|\btee\b(?:[ \t]+-[a-zA-Z-]+)*)[ \t]*["']?[^\s"'|;&<>]*\bchange-?log/i
+
+const writesChangelogByCommand = (command: string) =>
+  INTO_CHANGELOG.test(command) || (IN_PLACE_EDIT.test(command) && CHANGELOG_NAMED.test(command))
+
+const CHANGELOG_BY_COMMAND =
+  'house-rules: this command writes to a changelog from the shell, where the part of it the change reaches cannot be checked. ' +
+  'Change the changelog with Edit or Write instead: entries go under its next-version heading ' +
+  '(`## [Unreleased]` in Keep a Changelog), and a release heading waits until the person asks for the release.'
+
+const UNTIL_ASKED =
+  "Leave the version as it is, note the change under the changelog's next-version heading if the project keeps one, " +
+  'and say in your reply that it is ready for a release. Once the person asks for the bump or the release, make it again.'
+
+const versionBumped = (path: string, bump: string) =>
+  `house-rules: this change bumps the version in ${path} (${bump}), and a version goes up only when the person says so. ${UNTIL_ASKED}`
+
+const BUMPED_BY_COMMAND =
+  "house-rules: this command bumps a version (a package manager's version command, or an in-place edit of a version file), " +
+  `and a version goes up only when the person says so. ${UNTIL_ASKED}`
+
+const changelogPastNext = (path: string) =>
+  `house-rules: this change to ${path} reaches past its next-version section. ` +
+  'Add entries under the next-version heading at the top (`## [Unreleased]` in Keep a Changelog), ' +
+  'and open that heading above the latest release when the changelog has none. ' +
+  'The released sections, their headings and the intro change only when the person asks about the changelog.'
+
+// Why a change to a changelog or a version is refused, if it is. An Edit
+// whose file could not be read is judged on its own two strings, which show a
+// bump but not where in the changelog it lands.
+const guardedChange = (path: string, before: string, after: string, asked: AskedFor, whole: boolean) => {
+  const bump = versionBump(path, before, after)
+  if (bump !== undefined) return asked.versionBump ? undefined : versionBumped(path, bump)
+  const opened = asked.changelog || asked.versionBump || !whole
+  return CHANGELOG.test(path) && !opened && reachesPastNext(before, after) ? changelogPastNext(path) : undefined
+}
+
+// What the person's latest prompt asked for; their own prompts, at the
+// terminal, through Remote Control or from an SDK host, are the ones that count.
+const askedFor = atom({ plugin: 'house-rules', key: 'askedFor' } as const, { changelog: false, versionBump: false } as AskedFor)
+const PERSON = ['composer', 'bridge', 'sdk']
+const ASKS_ABOUT_CHANGELOG = /\bchange-?logs?\b/i
+const ASKS_FOR_BUMP = /\bbump(?:s|ed|ing)?\b|\breleas(?:e|es|ing)\b|\bnew version\b|\bversion (?:to|=) ?v?\d/i
+
+// Files not changed by hand: a file whose opening lines mark it as generated,
+// which changes through its source and its generator. A Write of a whole
+// generated file goes through, since that is how a skill regenerates one from
+// its template.
 const HEAD_LINES = 10
 
 // A template is what a generator reads, so it carries the header its output
@@ -285,10 +434,6 @@ const generatedMarker = (text: string) =>
     .split(/\r?\n/, HEAD_LINES)
     .map((line, index) => ({ line: index + 1, text: line.trim() }))
     .find(({ text: line }) => COMMENT.test(line) && GENERATED.some(rule => rule.test(line)))
-
-const changelogByHand = (path: string) =>
-  `house-rules: ${path} is a changelog, and a changelog is not changed by hand. ` +
-  'Leave it to the release tooling or the person: say what changed in the commit message, or give the entry in your reply.'
 
 const generatedByHand = (path: string, marker: { line: number; text: string }) =>
   `house-rules: ${path} is marked as generated (line ${marker.line}: ${marker.text.slice(0, 160)}), so it is not edited by hand. ` +
@@ -375,7 +520,12 @@ export const register: Register = on => {
 
   on('prompt.submit', async ($, e, next) => {
     const submitted = await next(e)
-    if (e.command?.name === UNSLOP && !('drop' in submitted)) await markUnslopped($, MAIN)
+    if ('drop' in submitted) return submitted
+    if (e.command?.name === UNSLOP) await markUnslopped($, MAIN)
+    if (PERSON.includes(e.origin.kind)) {
+      const asked = { changelog: ASKS_ABOUT_CHANGELOG.test(e.text), versionBump: ASKS_FOR_BUMP.test(e.text) }
+      await update($, askedFor, () => asked)
+    }
     return submitted
   }).catch(($, e, next) => next(e))
 
@@ -403,30 +553,42 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
 
   on('session.end', async ($, e, next) => {
-    if (e.reason === 'clear') await update($, unslopped, () => [])
+    if (e.reason === 'clear') {
+      await update($, unslopped, () => [])
+      await update($, askedFor, () => ({ changelog: false, versionBump: false }))
+    }
     return next(e)
   })
 
   on('tool.call', { tool: ['Bash', 'PowerShell'] }, async ($, e, next) => {
+    const asked = await read($, askedFor)
     const reasons = [
       ...(emDashes(e.command) > 0 ? [EM_DASH_IN_COMMAND] : []),
       ...((await carriesAttribution($, e.command)) ? [ATTRIBUTED] : []),
       ...(writesFileFromShellText(e.tool, e.command) ? [SHELL_TEXT_TO_FILE] : []),
+      ...(bumpsByCommand(e.command) && !asked.versionBump ? [BUMPED_BY_COMMAND] : []),
+      ...(writesChangelogByCommand(e.command) && !(asked.changelog || asked.versionBump) ? [CHANGELOG_BY_COMMAND] : []),
     ]
     return refuse(reasons) ?? next(e)
   }).catch(($, e, next) => (next.called ? next(e) : failed))
 
-  // A file not changed by hand is refused alone: nothing else about the
-  // change matters until it goes another way.
+  // A generated file, a changelog past its next-version section and a version
+  // bump are each refused alone: nothing else about the change matters until
+  // it goes another way.
   on('tool.call', { tool: 'Edit' }, async ($, e, next) => {
-    if (CHANGELOG.test(e.file_path)) return { deny: changelogByHand(e.file_path) }
     const before = await readOrEmpty($, e.file_path)
     const marker = TEMPLATE.test(e.file_path) || onlyComments(before) ? undefined : generatedMarker(before)
     if (marker !== undefined) return { deny: generatedByHand(e.file_path, marker) }
+    const after = edited(before, e.old_string, e.new_string, e.replace_all)
+    const asked = await read($, askedFor)
+    const guarded =
+      after === undefined
+        ? guardedChange(e.file_path, e.old_string, e.new_string, asked, false)
+        : guardedChange(e.file_path, before, after, asked, true)
+    if (guarded !== undefined) return { deny: guarded }
     const reasons = [...(emDashes(e.new_string) > emDashes(e.old_string) ? [emDashAddedTo(e.file_path)] : [])]
     if (MARKDOWN.test(e.file_path)) {
       if (!(await hasUnslop($, e))) reasons.unshift(notUnslopped(e.file_path, unslopFile($)))
-      const after = edited(before, e.old_string, e.new_string, e.replace_all)
       reasons.push(
         ...(after === undefined
           ? sentenceReasons(e.file_path, e.old_string, e.new_string)
@@ -437,8 +599,9 @@ export const register: Register = on => {
   }).catch(($, e, next) => (next.called ? next(e) : failed))
 
   on('tool.call', { tool: 'Write' }, async ($, e, next) => {
-    if (CHANGELOG.test(e.file_path)) return { deny: changelogByHand(e.file_path) }
     const before = await readOrEmpty($, e.file_path)
+    const guarded = guardedChange(e.file_path, before, e.content, await read($, askedFor), true)
+    if (guarded !== undefined) return { deny: guarded }
     const markdown = MARKDOWN.test(e.file_path)
     const reasons = [
       ...(markdown && !(await hasUnslop($, e)) ? [notUnslopped(e.file_path, unslopFile($))] : []),
