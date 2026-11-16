@@ -140,3 +140,8 @@ Everything a plugin needs beyond this repository, and who needs it.
   It fails when the docs drift from the tree: the plugin count, the [Plugin Index](#plugin-index) counts, hooks and dependencies, the [External Dependencies](#external-dependencies) rows the tree decides, a plugin README's Skills, Agents and Workflows tables, its Layout or a path it names, the marketplace entries, a relative link or anchor, a `<plugin>:<name>` name, or a `${CLAUDE_PLUGIN_ROOT}` path.
 - Keep the rest of the Plugin Index and External Dependencies in step by hand: what each plugin does, and what each tool, service and project dependency is for.
 - Run `node scripts/check-docs.test.mjs` after changing the docs check.
+
+## License
+
+The plugins are under the [MIT License](LICENSE).
+`house-rules` and `verification` adapt text from pstack, by Lauren Tan, under the MIT License too, and each one's `NOTICE` says which.
