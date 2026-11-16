@@ -139,6 +139,8 @@ const LOAD = {
     },
     missing: STRINGS,
     openQuestions: STRINGS,
+    structure: { ...STRINGS, description: 'each problem the devflow plan structure check listed with your Read of the plan, word for word; empty when it passed or said nothing' },
+    structureChecked: { type: 'boolean', description: 'whether a devflow plan structure check result came with your Read of the plan' },
     lastRound: { type: 'integer', description: 'the highest n among the "Round <n>" headings in §9; 0 if there are none' },
     legacyDocs: { type: 'boolean', description: 'whether .claude/docs/ holds architecture.md, design/, plans/ or reviews/' },
     note: { type: 'string' },
@@ -363,7 +365,8 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
 9. missing: the sections the plan lacks, of: 1 Goal, 2 Scope, 3 Use Cases, 4 Architecture Impact, 5 Domain Model Impact, 6 Phases, 7 Verification, 8 Risks, Assumptions and Open Questions, 9 Decision Log.
 10. openQuestions: the \`Q-n\` ids still open in §8, under Open Questions; not those under Settled by Probe.
 11. lastRound: the highest n among the \`#### Round <n>, ...\` headings in §9, or 0 if there are none.
-12. legacyDocs: whether \`.claude/docs/\` under the repository root holds \`architecture.md\`, \`design/\`, \`plans/\` or \`reviews/\` (documents from an earlier version of these plugins).`,
+12. legacyDocs: whether \`.claude/docs/\` under the repository root holds \`architecture.md\`, \`design/\`, \`plans/\` or \`reviews/\` (documents from an earlier version of these plugins).
+13. structure and structureChecked: the devflow hooks add the plan structure check's result to a Read of the plan, as a note after the file that starts \`devflow: the plan structure check\`. structure: each \`<path>:<line>: <message>\` line it lists, word for word; empty when it says the plan passes. structureChecked: whether that note came with your Read at all.`,
     { schema: LOAD, label: expected ? `load round ${expected}` : 'load', phase: 'Load', ...ROLES.mechanical },
   )
   if (pass === 1) {
@@ -397,6 +400,11 @@ The plan contract is \`references/feature-plan.md\` in the devflow plugin; you o
     ? `The project profile is \`${ctx.profilePath}\`: apply its precedence to every finding's status.`
     : 'There is no project profile: every finding is a violation.'
   log(`Round ${round} (${pass} of at most ${maxRounds} in this run) on ${plan} (${ctx.status}, revision ${revisionOf(ctx.revision)}): ${ctx.useCases.length} use cases, lenses ${roundLenses.join(', ')}, ${votes} ${votes === 1 ? 'skeptic' : 'skeptics'} per lens. ${ctx.stale.length ? `Stale inputs: ${ctx.stale.join(', ')}.` : ''}${ctx.missing.length ? ` Missing sections: ${ctx.missing.join(', ')}.` : ''}`)
+  // The devflow hooks run the plan structure check on every read of a plan; without them, the delivery reviewer checks the contract by reading.
+  const structure = ctx.structure || []
+  log(!ctx.structureChecked
+    ? 'Structure check: no result came with the plan, so the devflow hooks are not running; the delivery reviewer checks the contract by reading.'
+    : structure.length ? `Structure check: ${structure.length} ${structure.length === 1 ? 'problem' : 'problems'}, which the delivery reviewer reports.` : 'Structure check: the plan passes.')
   if (!canRevise) log(`The plan is ${ctx.status}: this review reports, and does not revise it.`)
   if (ctx.status === 'approved') log('The plan was approved; revising it sets it back to reviewed, and it needs the user\'s approval again.')
 
@@ -492,7 +500,9 @@ Return findings with \`lens: "dmf"\` and ids \`D-n\`. Put a short overview in \`
       key: 'plan',
       lens: 'plan',
       prompt: `Review the feature plan \`${plan}\` for delivery, with every check in your instructions.
-${common}
+${common}${structure.length ? `
+The plan structure check found these problems when the plan was loaded; report each one under your Contract check, citing its line:
+${structure.map(problem => `- ${problem}`).join('\n')}` : ''}
 Return findings with \`lens: "plan"\` and ids \`P-n\`. Put a one-line verdict in \`summary\`: can a developer agent build it phase by phase, and can a QA agent check every phase?`,
     })
   }

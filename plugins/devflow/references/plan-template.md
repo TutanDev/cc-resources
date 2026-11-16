@@ -79,7 +79,7 @@
 
 ### Phase 1: <name>
 
-- **Goal:** <what works after this phase that did not before>
+- **Goal:** <what works after this phase that did not before, naming each use case it completes, such as UC-1>
 - **Depends on:** none
 - **Changes:** <services, types and files, citing §4 and §5>
 - **Acceptance criteria:**

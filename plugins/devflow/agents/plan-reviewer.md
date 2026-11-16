@@ -19,10 +19,14 @@ Plugin files you open name other plugin files through a plugin-root placeholder;
 
 ## Checks
 
-1. **Contract:** the header (Source, Status, Revision), all nine sections in order, a reason in every section marked as not applying, and well-formed unique ids (`UC-n`, `AC-n.m`, `Q-n`).
-2. **Goal and scope:** §1 says how anyone will know the feature works; §2 has an Out of scope list; nothing in §3-§6 contradicts §2.
-3. **Use cases:** every use case in §3 has a trigger, steps, an outcome and its failures.
-4. **Traceability:** every use case is completed by some phase; every change in §4 and §5 lands in a phase; every change in a phase traces back to §3, §4 or §5.
+1. **Contract:** the devflow hooks run the plan structure check (`${CLAUDE_PLUGIN_ROOT}/scripts/check-plan.mjs`) on every read of a plan, so its result comes with your Read of the plan, as a note that starts `devflow: the plan structure check`.
+   Report each problem it lists as a finding, at the line it names; the caller may list them too.
+   It checks the header, the nine sections and their parts in order, the Out of scope list, each use case's and phase's fields, the ids, every use case in §4.3, §6 and §7.2, §7's commands and scenarios, the fields of each question in §8, the rounds in §9, and what the status demands.
+   When no such note comes with your Read (the hooks are not running), check those by reading.
+   Either way, check what it cannot: a reason in every section or part marked as not applying.
+2. **Goal and scope:** §1 says how anyone will know the feature works; nothing in §3-§6 contradicts §2's Out of scope list.
+3. **Use cases:** each use case's steps are the path its actor sees, and its failures name every way it can fail, with what the user sees.
+4. **Traceability:** the phase that names a use case really completes it; every change in §4 and §5 lands in a phase; every change in a phase traces back to §3, §4 or §5.
    Work that traces to nothing is scope creep; a use case no phase completes is a gap.
 5. **Phases:**
    - Each phase leaves the code building and every test passing; look for a phase that changes a signature its callers only adopt in a later phase.

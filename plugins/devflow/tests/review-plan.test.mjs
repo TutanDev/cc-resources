@@ -56,6 +56,7 @@ async function run(name, {
   args = 'x', status = 'draft', lastRound = 0, openQuestions = [], reviews = {}, summaries = {}, verdict = 'confirmed', judge = () => assert.fail('no judge expected'),
   judgeFails = false, reportFails = false, writerFails = false, writerRefuses = false, writerSkipsLog = false,
   checkRefused = false, checkFails = false, readRefused = false, readFails = false, noPlan = false, legacyDocs = false, planPath = 'cc-docs/plans/x.md',
+  structure = [], structureChecked = true,
 }) {
   const calls = []
   const logs = []
@@ -66,7 +67,7 @@ async function run(name, {
     calls.push({ label, agentType: opts.agentType, model: opts.model, effort: opts.effort, prompt })
     if (label === 'load' || label.startsWith('load round')) {
       if (noPlan) return { repoRoot: '/r', planPath: '', feature: '', today: '2026-10-12', status: 'unknown', revision: '', profilePath: '', sources: [], designDir: '', stale: [], useCases: [], missing: [], openQuestions: [], lastRound: 0, legacyDocs, note: 'no plans' }
-      return { repoRoot: '/r', planPath, feature: 'x', today: '2026-10-12', status: plan.status, revision: String(plan.revision), profilePath: 'cc-docs/architecture.md', sources: [], designDir: '', stale: [], useCases: [{ id: 'UC-1', name: 'a', summary: 's' }, { id: 'UC-2', name: 'b', summary: 's' }], missing: [], openQuestions: [...plan.openQuestions], lastRound: plan.lastRound, legacyDocs, note: '' }
+      return { repoRoot: '/r', planPath, feature: 'x', today: '2026-10-12', status: plan.status, revision: String(plan.revision), profilePath: 'cc-docs/architecture.md', sources: [], designDir: '', stale: [], useCases: [{ id: 'UC-1', name: 'a', summary: 's' }, { id: 'UC-2', name: 'b', summary: 's' }], missing: [], openQuestions: [...plan.openQuestions], lastRound: plan.lastRound, legacyDocs, structure, structureChecked, note: '' }
     }
     if (label === 'read check') {
       if (readFails) return null
@@ -593,6 +594,26 @@ console.log('ok', 're-review lenses')
   await assert.rejects(run('bad lens', { args: 'x --lenses=fp' }), /Unknown lens fp/)
   await assert.rejects(run('bad flag', { args: 'x --out=docs' }), /Unknown option --out/)
   console.log('ok', r.name, '/ no plan / legacy / bad options')
+}
+
+// 15. The plan structure check: the problems the hooks reported with the Load's read go to the delivery reviewer, and
+// a run without the hooks says the delivery reviewer checks the contract alone.
+{
+  const problems = [
+    'cc-docs/plans/x.md:12: §2 has no **Out of scope** list: add the label, then at least one item.',
+    'cc-docs/plans/x.md:80: Phase 2 lacks `- **Status:**`: pending, until the implementation workflow sets done.',
+  ]
+  const r = await run('structure problems', { structure: problems })
+  assert.match(r.call('plan').prompt, /The plan structure check found these problems when the plan was loaded; report each one under your Contract check, citing its line:\n- cc-docs\/plans\/x\.md:12: §2 has no \*\*Out of scope\*\* list[^\n]*\n- cc-docs\/plans\/x\.md:80: Phase 2 lacks/)
+  for (const lens of ['lowy', 'chains', 'dmf']) assert.doesNotMatch(r.call(lens).prompt, /structure check/, `the ${lens} lens is not told`)
+  assert.ok(r.logs.some(l => l === 'Structure check: 2 problems, which the delivery reviewer reports.'))
+  const clean = await run('structure passes', {})
+  assert.doesNotMatch(clean.call('plan').prompt, /structure check/)
+  assert.ok(clean.logs.some(l => l === 'Structure check: the plan passes.'))
+  const off = await run('no hooks', { structureChecked: false })
+  assert.ok(off.logs.some(l => /^Structure check: no result came with the plan, so the devflow hooks are not running/.test(l)))
+  assert.match(r.call('load').prompt, /13\. structure and structureChecked: the devflow hooks add the plan structure check's result to a Read of the plan/)
+  console.log('ok', r.name, '/ passes / no hooks')
 }
 
 console.log('review-plan: all control-flow tests passed')

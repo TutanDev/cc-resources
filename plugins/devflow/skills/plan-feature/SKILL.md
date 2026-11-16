@@ -33,6 +33,9 @@ A phase you do not run stays in the list, marked `skip: <one-line reason>`, such
 List `cc-docs/plans/`.
 If `.claude/docs/` exists and `cc-docs/` does not, the documents are from an earlier version of these plugins: offer to move them with `git mv .claude/docs cc-docs` before anything else, because no workflow can write under `.claude/`.
 
+The devflow hooks check every plan an agent reads or writes against the contract, and add the result to the Read as a note that starts `devflow: the plan structure check`.
+When a Read of a plan brings no such note, the hooks are not running: after the writer's Draft (Phase 2) and after its answers (Phase 4), run `node "${CLAUDE_PLUGIN_ROOT}/scripts/check-plan.mjs" <plan path>` yourself, and send any problem it prints to `devflow:plan-writer` in Answers mode to fix.
+
 - If the argument names an existing plan, read its `> Status:` line and continue from it: `draft` goes to Phase 3, `reviewed` to Phase 4.
   An `approved` plan is ready; offer a new review (Phase 3) only if the user wants to change it, and say that a change needs their approval again.
   An `in-progress` or `done` plan is being built or is built: report its status and stop.

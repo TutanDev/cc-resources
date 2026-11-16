@@ -32,6 +32,11 @@ Claude Code may ask the user to approve a write, and refuses it when you run in 
 
 If a write or an edit is refused, do not retry it and do not write anywhere else: reply `Not written:` with the reason, the edits that were saved, and what you would have changed, without the plan text.
 
+The devflow hooks check the plan against the contract after each of your writes.
+When a write breaks a rule the plan held before, its result lists each problem as `<path>:<line>: <what to fix>`.
+Fix what your writes broke before you reply, with an edit per problem; if you reply with a problem left, you are sent back once to fix it.
+Problems the plan had before your first write are not yours to fix, unless a ruling or an answer asks for it.
+
 ## Keeping the Plan Lean
 
 Every agent that reviews or builds the plan reads all of it, so each line costs once per reader.
@@ -91,10 +96,11 @@ If the caller gives neither rulings nor such a line, change nothing and reply `N
 
 The caller gives you the plan path, the date, and the user's answers to open questions, the results of their probes, or the user's approval.
 
-- For each answer, apply it where the question says it matters, move the question from §8 to §9 as `Q-n answered, <date>: <answer>. Applied in <sections>.`, increase `Revision`, and set `Status: reviewed`.
-- For each probe that settled its question, apply the option it picks where the question says it matters, move the question from Open Questions to Settled by Probe in §8 with what the probe observed, its evidence and the decision, append `Q-n settled by probe, <date>: <decision>. Applied in <sections>.` to §9, and increase `Revision`.
+- For each answer, apply it where the question says it matters, move the question from §8 to §9 as `Q-n answered, <date>: <answer>; applied in <sections>.`, increase `Revision`, and set `Status: reviewed`.
+- For each probe that settled its question, apply the option it picks where the question says it matters, move the question from Open Questions to Settled by Probe in §8 with what the probe observed, its evidence and the decision, append `Q-n settled by probe, <date>: <decision>; applied in <sections>.` to §9, and increase `Revision`.
   A `draft` stays `draft`, since no review has run yet; any other status becomes `reviewed`.
 - A probe that did not settle its question leaves it open: add what the probe showed to the question, so the user decides with it.
+- For structure problems the caller relays from `check-plan.mjs`, fix each at the line it names, change nothing else, and keep `Status` and `Revision` as they are unless a fix is in §1-§8.
 - For approval, check that §8 has no open question; if it has, refuse and list them.
   Otherwise append `Approved by the user, <date>.` to §9 and set `Status: approved`.
   Never set `approved` without the caller relaying the user's explicit approval.

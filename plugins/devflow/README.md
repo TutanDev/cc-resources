@@ -162,6 +162,25 @@ Each review round's report goes to `cc-docs/reviews/<feature>-plan-review-<date>
 A plan is for a feature of a system that exists.
 For a new system or subsystem, run the 8-phase design pipeline first (`lowy:architecture-advisor`); plans then build on its design directory.
 
+### Structure Check
+
+`scripts/check-plan.mjs` checks a plan against every rule of the contract that needs no judgment: the header, the nine sections and their parts in order, the Out of scope list, each use case's and each phase's fields, the ids, every use case in §4.3, §6 and §7.2, §7's commands and scenarios, each open question's fields, the rounds in §9, and what the status demands, such as no open question in an approved plan.
+It prints each problem as `<file>:<line>: <what to fix>` and exits 1 when there is one, so it runs in CI as well:
+
+```
+node <devflow plugin folder>/scripts/check-plan.mjs cc-docs/plans/*.md
+```
+
+The plugin's function hooks run the same check wherever an agent reads or writes a plan under `cc-docs/plans/`:
+
+- a write or an edit that breaks a rule the plan held tells the agent, in the tool's result, what it broke and where;
+- an agent that hands back a plan it broke is sent back once to fix it, the plan writer as much as your main session;
+- every read of a plan carries the result, so the review's Load phase hands the problems to the delivery reviewer, which reports each as a finding.
+
+Problems a plan had before an agent first wrote it are not counted against that agent, so a writer applying one ruling is not sent back for an old flaw.
+What needs judgment stays with the reviewers: whether a phase is small enough, a criterion checkable, a test able to fail.
+Function hooks need a Claude Code build that runs them; without them, `plan-feature` runs the script itself after each draft and each set of answers, and the delivery reviewer checks the contract by reading.
+
 ## Project Profile
 
 Every agent reads `cc-docs/architecture.md`, as in the `lowy` and `dmf` plugins.
@@ -176,16 +195,22 @@ devflow/
 ├── agents/          plan-writer, plan-reviewer, plan-judge
 ├── skills/          plan-feature
 ├── workflows/       review-plan
+├── hooks/           The function hooks that run the structure check where agents read and write plans
+├── scripts/         The plan structure check, and its command line
 ├── references/      The plan contract and template, plus the contracts shared with lowy and dmf:
 │                    project profile, review findings, design directory
-└── tests/           Control-flow tests for the workflows, with stub agents
+├── tests/           Control-flow tests for the workflows with stub agents, the structure check's
+│                    tests with a sample plan in fixtures/, and the hooks' tests
+└── types/           The session values the hooks keep, as a typed contract
 ```
 
 ## Maintaining
 
 Bump `version` in `.claude-plugin/plugin.json` with every change you want users to receive.
 `references/project-profile.md`, `review-findings.md` and `design-directory.md` have identical copies in `plugins/dmf/references/` and `plugins/lowy/references/`: change all three, then run `bash scripts/check-shared.sh` from the repository root.
-Run `node plugins/devflow/tests/review-plan.test.mjs` after changing `workflows/review-plan.js`, and `claude plugin validate plugins/devflow` before pushing.
+Run `node plugins/devflow/tests/review-plan.test.mjs` after changing `workflows/review-plan.js`, and `node plugins/devflow/tests/check-plan.test.mjs` after changing the plan contract, its template or `scripts/plan-structure.mjs`: the template and the sample plan must keep passing.
+Run `claude plugin test plugins/devflow` and `claude plugin validate plugins/devflow` before pushing.
+Claude Code lays the API's types in `.claude-plugin/types/` when it loads the folder, and `tsconfig.json` extends them, so `tsc -p plugins/devflow` type-checks the hooks.
 Keep the workflow scripts LF-only and plain JavaScript: the Workflow tool rejects carriage returns and TypeScript syntax.
 To run a workflow from a checkout with `--plugin-dir`, allow reads of that checkout too, or use auto mode: the `Read` rule above covers only the installed plugins.
 

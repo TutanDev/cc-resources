@@ -67,7 +67,7 @@ Out of scope is required: it is what reviewers and the judge use to reject scope
 The use cases the feature adds or changes, each with a stable id:
 
 ```
-#### UC-1: <name>
+### UC-1: <name>
 - **Trigger:** the actor or event that starts it.
 - **Steps:** the main path, as the user or system sees it.
 - **Outcome:** what is true when it succeeds.
@@ -145,8 +145,9 @@ Each review round adds one table:
 
 A round with nothing to rule on adds one line that says why instead, such as "No findings survived verification." or, for a round that re-reviews earlier changes and rules only on critical and major findings, "No critical or major finding survived verification."
 Rounds are numbered over the plan's whole life: a later review continues from the last round in §9.
-User decisions are entries too: `Q-3 answered, <YYYY-MM-DD>: <answer>. Applied in <sections>.` and `Approved by the user, <YYYY-MM-DD>.`
-So is a probe: `Q-4 settled by probe, <YYYY-MM-DD>: <decision>. Applied in <sections>.`, with its evidence in §8.
+User decisions are entries too, each on its own line: `Q-3 answered, <YYYY-MM-DD>: <answer>; applied in <sections>.` and `Approved by the user, <YYYY-MM-DD>.`
+So is a probe: `Q-4 settled by probe, <YYYY-MM-DD>: <decision>; applied in <sections>.`, with its evidence in §8.
+Each entry is one sentence, so a line holds one sentence.
 
 ## Phases
 
@@ -154,7 +155,7 @@ Each phase in §6 has this shape:
 
 ```
 ### Phase 1: <name>
-- **Goal:** one sentence: what works after this phase that did not before.
+- **Goal:** one sentence: what works after this phase that did not before, naming by id each use case it completes.
 - **Depends on:** earlier phases, or none.
 - **Changes:** the services, types and files to add or change, citing §4 and §5.
 - **Acceptance criteria:**
@@ -182,6 +183,18 @@ The rules:
 7. **Complete coverage:** every use case in §3 is completed by some phase, every change in §4 and §5 lands in some phase, and every change in a phase traces back to §3, §4 or §5.
 
 `Status` is `pending` or `done`; only the implementation workflow sets `done`.
+
+## Structure Check
+
+`scripts/check-plan.mjs` in the devflow plugin checks a plan against the rules of this contract that need no judgment: the header, the nine sections and their parts in order, the Out of scope list, each use case's and each phase's fields, the ids, every use case in §4.3, §6 and §7.2, §7's commands and scenarios, the fields of each question in §8, the rounds in §9, and what the status demands.
+It prints each problem as `<file>:<line>: <what to fix>`, and exits 1 when there is one.
+The devflow hooks run the same check wherever an agent reads or writes a plan:
+
+- a write that breaks a rule the plan held tells the agent what broke, in the write's own result;
+- an agent that hands back a plan it broke is sent back once to fix it, and problems the plan had before its first write are not counted against it;
+- every Read of a plan carries the result, so the review workflow's Load phase and the delivery reviewer start from it.
+
+What needs judgment stays with the reviewers: whether a phase is small enough, a criterion checkable, a test able to fail, a reason sound.
 
 ## Staleness
 

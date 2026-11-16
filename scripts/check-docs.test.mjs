@@ -89,7 +89,7 @@ drift('a count with the wrong number', repo => {
 }, [at('README.md', ROW('lowy'), 'says "1 agent" for lowy, but plugins/lowy/agents/ holds 2')])
 
 drift('a count with the wrong grammar', repo => {
-  repo.edit('README.md', '| 1 skill, 3 agents, 1 workflow |', '| 1 skills, 3 agents, 1 workflow |')
+  repo.edit('README.md', '| 1 skill, 3 agents, 1 workflow, and function hooks', '| 1 skills, 3 agents, 1 workflow, and function hooks')
 }, [at('README.md', ROW('devflow'), 'says "1 skills" for devflow: write "1 skill"')])
 
 drift('a new workflow', repo => {
