@@ -11,13 +11,15 @@ For system-level architecture on larger projects, add the [`lowy`](../lowy/READM
 
 ## Install
 
-In Claude Code:
+From inside the repository that needs it:
 
 ```
-/plugin marketplace add TutanDev/cc-resources
-/plugin install dmf@cc-resources
+claude plugin marketplace add TutanDev/cc-resources
+claude plugin install dmf@cc-resources --scope project
 ```
 
+Project scope records the plugin in that repository's `.claude/settings.json`, so it is on for the whole team and off in your other repositories.
+Avoid user scope: the hooks would then hold every C# repository you open to the skills, whether it follows DMF or not.
 Then run `/reload-plugins` or start a new session.
 
 ## Skills

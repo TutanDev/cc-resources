@@ -37,8 +37,22 @@ Inside a session, the same command is `/plugin marketplace add TutanDev/cc-resou
 claude plugin install <plugin>@cc-resources
 ```
 
+This installs the plugin at user scope, for you in every repository.
+Add `--scope project` to record it in the repository's `.claude/settings.json`, which turns it on for everyone who works there and nowhere else.
+Add `--scope local` to turn it on for you alone in that repository.
 A plugin's dependencies are installed and enabled with it, at the same scope.
 A new install loads at the next session start, or in the current session after `/reload-plugins`.
+
+### Choose a Scope
+
+Install each plugin at the scope its rules belong to.
+
+| Plugin | Scope | Why |
+|---|---|---|
+| `workstation` | User | It sets up the machine, and writes to your user settings anyway |
+| `house-rules` | User | Its rules are yours and follow you into every repository; at project scope they bind everyone who works there |
+| `verification` | User | It writes a `verify-<app>` skill into the project, and that skill works without the plugin |
+| `dmf`, `lowy`, `devflow` | Project | A codebase adopts the method, and they read that codebase's profile in `cc-docs/architecture.md`; at user scope, the `dmf` hooks hold every C# repository you open to the skills, whether it follows DMF or not |
 
 ### Set Up a New Machine
 
@@ -46,12 +60,22 @@ A new install loads at the next session start, or in the current session after `
 claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin marketplace add TutanDev/cc-resources
 claude plugin install workstation@cc-resources
-claude plugin install dmf@cc-resources
 claude plugin install house-rules@cc-resources
 ```
 
 The first command is only needed before the machine's first interactive Claude Code session, which adds the official marketplace by itself.
 Without it `workstation` fails to load, because its dependencies cannot be found.
+
+### Set Up a Repository
+
+From inside a C# repository that follows Domain Modeling Made Functional:
+
+```
+claude plugin install dmf@cc-resources --scope project
+```
+
+Install `lowy` instead when the repository also needs system-level architecture, or `devflow` for its planning workflows; each brings `dmf` with it.
+Commit `.claude/settings.json`, so the plugins are on for everyone who works in the repository.
 
 ### Manage Installed Plugins
 
